@@ -5,8 +5,6 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
 
 from pyhees.section2_1 import calc_E_T
 from pyhees import section2_1, section2_2, section3_1, section3_2, section10
-import heating_and_cooling
-import get_secondary_energy_section_2_2 as ss
 from pyhees.section2_1_b import get_f_prim
 from pyhees.section4_1 import calc_heating_load, calc_heating_mode, get_virtual_heating_devices, get_virtual_heatsource, \
     get_E_E_H_d_t, get_E_G_H_d_t, calc_E_K_H_d_t, calc_E_M_H_d_t, calc_E_UT_H_d_t
