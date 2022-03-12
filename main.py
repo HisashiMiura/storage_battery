@@ -2,6 +2,7 @@ from typing import Dict
 import numpy as np
 from math import radians
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
+import pandas as pd
 
 from pyhees.section2_1 import calc_E_T
 from pyhees import section2_1, section2_2, section3_1, section3_2, section10
@@ -9,6 +10,8 @@ from pyhees.section2_1_b import get_f_prim
 from pyhees.section4_1 import calc_heating_load, calc_heating_mode, get_virtual_heating_devices, get_virtual_heatsource, \
     get_E_E_H_d_t, get_E_G_H_d_t, calc_E_K_H_d_t, calc_E_M_H_d_t, calc_E_UT_H_d_t
 from pyhees.section9_1 import calc_E_E_PV_d_t
+import pvbatt2
+import pvbatt
 
 
 def calc_total_energy(spec: Dict):
@@ -679,5 +682,45 @@ if __name__ == '__main__':
         }
     }
 
-    calc_total_energy(spec=spec)
+#    calc_total_energy(spec=spec)
 
+    spec = {
+        "E_dash_dash_E_in_rtd_PVtoDB": 6.0,
+        "eta_ce_lim_PVtoDB": 0.6,
+        "alpha_PVtoDB": -0.0126,
+        "beta_PVtoDB": 0.975,
+        "E_dash_dash_E_in_rtd_PVtoSB": 6.0,
+        "eta_ce_lim_PVtoSB": 0.6,
+        "alpha_PVtoSB": -0.025,
+        "beta_PVtoSB": 0.975,
+        "E_dash_dash_E_in_rtd_SBtoDB": 6.0,
+        "eta_ce_lim_SBtoDB": 0.6,
+        "alpha_SBtoDB": -0.036,
+        "beta_SBtoDB": 0.975,
+        "P_aux_PCS_oprt": 25.0,
+        "P_aux_PCS_stby": 2.0,
+        "r_LCP_batt": 0.2,
+        "V_rtd_batt": 177.6,
+        "V_star_lower_batt": 129.6,
+        "V_star_upper_batt": 196.8,
+        "SOC_star_lower": 0.2,
+        "SOC_star_upper": 0.8,
+        "W_rtd_batt": 12.0,
+        "n": 1,
+        "K_IN": 2.0,
+        "K_PM": [1.0],
+        "eta_IN_R": 1.0,
+        
+        "r_int_dchg_batt": 0.6,
+    }
+
+    # 時系列電力需要読み込み
+    # columns = ["電力供給", "外気温度", "電力需要", "太陽電池アレイの発電量1"]
+    df = pd.read_csv("input.csv", encoding="SHIFT-JIS")
+
+    print("入力ファイルの表示")
+    print(df)
+    
+    output_data = pvbatt.calculate(spec, df)
+
+    output_data.to_csv("output.csv", index=False, encoding="SHIFT-JIS")
