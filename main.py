@@ -125,6 +125,31 @@ def calc_total_energy(spec: Dict):
     # その他または設置しない場合
     spec_HW = section2_2.get_virtual_hotwater(spec['region'], spec['HW'])
 
+    # 仮想居住人数
+    n_p = section2_2.get_n_p(A_A=spec['A_A'])
+
+    # 暖房日の計算
+    heating_flag_d = section2_2.calc_heating_flag_d(
+        A_A=spec['A_A'],
+        A_MR=spec['A_MR'],
+        A_OR=spec['A_OR'],
+        HEX=spec['HEX'],
+        H_MR=spec['H_MR'],
+        H_OR=spec['H_OR'],
+        Q=Q,
+        SHC=spec['SHC'],
+        TS=spec['TS'],
+        mu_H=eta_H,
+        mu_C=eta_C,
+        NV_MR=spec['NV_MR'],
+        NV_OR=spec['NV_OR'],
+        r_A_ufvnt=spec['r_A_ufvnt'],
+        region=spec['region'],
+        sol_region=spec['sol_region'],
+        underfloor_insulation=spec['underfloor_insulation']
+    )
+    
+
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_W: 1時間当たりの給湯設備またはコージェネレーション設備のガス消費量 (MJ/h)
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -135,7 +160,7 @@ def calc_total_energy(spec: Dict):
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
     E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
+            = calc_E_W(n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
                       spec['H_A'],
                       spec['H_MR'], spec['H_OR'], spec['H_HS'], spec['C_A'], spec['C_MR'], spec['C_OR'],
                       spec['V'],
@@ -152,9 +177,6 @@ def calc_total_energy(spec: Dict):
 
     # 1 年当たりの機械換気設備の設計一次エネルギー消費量
     E_V, E_E_V_d_t = calc_E_V(spec['A_A'], spec['V'], spec['HEX'])
-
-    # 仮想居住人数
-    n_p = section2_2.get_n_p(A_A=spec['A_A'])
 
     #region その他の一次エネルギー消費量
 
@@ -466,57 +488,56 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 
 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
-def calc_E_W(A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_MR=None, H_OR=None, H_HS=None, C_A=None, C_MR=None,
+def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_MR=None, H_OR=None, H_HS=None, C_A=None, C_MR=None,
             C_OR=None,
             V=None, L=None, A_MR=None, A_OR=None, A_env=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
             r_A_ufvnt=None, HEX=None, underfloor_insulation=None, mode_H=None, mode_C=None):
     """1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 
     Args:
-      A_A(float): 床面積の合計 (m2)
-      region(int): 省エネルギー地域区分
-      sol_region(int): 年間の日射地域区分(1-5)
-      HW(dict): 給湯機の仕様
-      SHC(dict): 集熱式太陽熱利用設備の仕様
-      CG(dict): コージェネレーションの機器
-      H_A(dict, optional, optional): 暖房方式, defaults to None
-      H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
-      C_A(dict, optional, optional): 冷房方式, defaults to None
-      C_MR(dict, optional, optional): 主たる居室の冷房機器, defaults to None
-      C_OR(dict, optional, optional): その他の居室の冷房機器, defaults to None
-      V(dict, optional, optional): 換気設備仕様辞書, defaults to None
-      L(dict, optional, optional): 照明設備仕様辞書, defaults to None
-      A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
-      A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
-      Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
-      mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
-      mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
-      NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
-      NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
-      TS(bool, optional, optional): 蓄熱, defaults to None
-      r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
-      HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
-      underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
-      mode_H(str, optional, optional): 暖房方式, defaults to None
-      mode_C(str, optional, optional): 冷房方式, defaults to None
-      A_env: Default value = None)
+        n_p: 仮想居住人数
+        heating_flag_d: 暖房日
+        A_A(float): 床面積の合計 (m2)
+        region(int): 省エネルギー地域区分
+        sol_region(int): 年間の日射地域区分(1-5)
+        HW(dict): 給湯機の仕様
+        SHC(dict): 集熱式太陽熱利用設備の仕様
+        CG(dict): コージェネレーションの機器
+        H_A(dict, optional, optional): 暖房方式, defaults to None
+        H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
+        H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
+        H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
+        C_A(dict, optional, optional): 冷房方式, defaults to None
+        C_MR(dict, optional, optional): 主たる居室の冷房機器, defaults to None
+        C_OR(dict, optional, optional): その他の居室の冷房機器, defaults to None
+        V(dict, optional, optional): 換気設備仕様辞書, defaults to None
+        L(dict, optional, optional): 照明設備仕様辞書, defaults to None
+        A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
+        A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
+        Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
+        mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
+        mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
+        NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
+        NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
+        TS(bool, optional, optional): 蓄熱, defaults to None
+        r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
+        HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
+        underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
+        mode_H(str, optional, optional): 暖房方式, defaults to None
+        mode_C(str, optional, optional): 冷房方式, defaults to None
+        A_env: Default value = None)
 
     Returns:
-      tuple: 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
+        tuple: 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 
     """
-
-    # 想定人数
-    n_p = section2_2.get_n_p(A_A)
 
     # その他または設置しない場合
     spec_HW = section2_2.get_virtual_hotwater(region, HW)
 
     # 暖房日の計算
-    heating_flag_d = section2_2.calc_heating_flag_d(A_A, A_MR, A_OR, HEX, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region,
-                                         sol_region, underfloor_insulation)
+#    heating_flag_d = section2_2.calc_heating_flag_d(A_A, A_MR, A_OR, HEX, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region,
+#                                         sol_region, underfloor_insulation)
     
     # 1日当たりの給湯設備の消費電力量
     E_E_W_d_t = section2_2.calc_E_E_W_d_t(n_p, L_HWH, heating_flag_d, region, sol_region, spec_HW, SHC)
