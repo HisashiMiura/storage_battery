@@ -153,8 +153,44 @@ def calc_total_energy(spec: Dict):
     # 1 年当たりの機械換気設備の設計一次エネルギー消費量
     E_V, E_E_V_d_t = calc_E_V(spec['A_A'], spec['V'], spec['HEX'])
 
+    # 仮想居住人数
+    n_p = section2_2.get_n_p(A_A=spec['A_A'])
+
+    #region その他の一次エネルギー消費量
+
+    # 1時間当たりの家電の消費電力量, kWh/h
+    E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
+
+    # 1時間当たりの家電のガス消費量, MJ/h
+    E_G_AP_d_t = section10.get_E_G_AP_d_t()
+
+    # 1時間当たりの家電の灯油消費量, MJ/h
+    E_K_AP_d_t = section10.get_E_K_AP_d_t()
+
+    # 1時間当たりの家電のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_AP_d_t = section10.get_E_M_AP_d_t()
+
+    # 1時間当たりの調理の消費電力量, kWh/h
+    E_E_CC_d_t = section10.get_E_E_CC_d_t()
+
+    # 1時間当たりの調理のガス消費量, MJ/h
+    E_G_CC_d_t = section10.calc_E_G_CC_d_t(n_p)
+
+    # 1時間当たりの調理の灯油消費量, MJ/h
+    E_K_CC_d_t = section10.get_E_K_CC_d_t()
+
+    # 1時間当たりの調理のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_CC_d_t = section10.get_E_M_CC_d_t()
+
+    #endregion
+    
+    f_prim = section2_1.get_f_prim()
+
     # 1年当たりのその他の設計一次エネルギー消費量
-    E_M, E_E_AP_d_t, E_G_AP_d_t, E_K_AP_d_t, E_E_CC_d_t, E_G_CC_d_t, E_K_CC_d_t = calc_E_M(spec['A_A'])
+    E_M = np.sum(
+        E_E_AP_d_t * f_prim / 1000 + E_G_AP_d_t + E_K_AP_d_t + E_M_AP_d_t
+        + E_E_CC_d_t * f_prim / 1000 + E_G_CC_d_t + E_K_CC_d_t + E_M_CC_d_t
+    )
 
     # 1時間当たりの太陽光発電設備による発電量, kWh/h
     E_E_PV_d_t = calc_E_E_PV_d_t(spec['PV'], solrad)
@@ -173,7 +209,6 @@ def calc_total_energy(spec: Dict):
     # 1 年当たりの設計消費電力量（kWh/年）
     E_E = calc_E_E(E_E_H_d_t, E_E_C_d_t, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
-    f_prim = section2_1.get_f_prim()
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
@@ -539,58 +574,6 @@ def calc_E_V(A_A, V, HEX):
     return E_V, E_E_V_d_t
 
 
-def calc_E_M(A_A):
-    """1年当たりのその他の設計一次エネルギー消費量
-
-    Args:
-      A_A(float): 床面積の合計 (m2)
-
-    Returns:
-      float: 1年当たりのその他の設計一次エネルギー消費量
-
-    """
-    
-    # 想定人数
-    n_p = section2_2.get_n_p(A_A)
-
-    # 1時間当たりの家電の消費電力量, kWh/h
-    E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
-
-    # 1時間当たりの家電のガス消費量, MJ/h
-    E_G_AP_d_t = section10.get_E_G_AP_d_t()
-
-    # 1時間当たりの家電の灯油消費量, MJ/h
-    E_K_AP_d_t = section10.get_E_K_AP_d_t()
-
-    # 1時間当たりの家電のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_AP_d_t = section10.get_E_M_AP_d_t()
-
-    # 1時間当たりの調理の消費電力量, kWh/h
-    E_E_CC_d_t = section10.get_E_E_CC_d_t()
-
-    # 1時間当たりの調理のガス消費量, MJ/h
-    E_G_CC_d_t = section10.calc_E_G_CC_d_t(n_p)
-
-    # 1時間当たりの調理の灯油消費量, MJ/h
-    E_K_CC_d_t = section10.get_E_K_CC_d_t()
-
-    # 1時間当たりの調理のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_CC_d_t = section10.get_E_M_CC_d_t()
-
-    f_prim = get_f_prim()
-
-    # 1 時間当たりの家電の設計一次エネルギー消費量
-    E_AP_d_t = E_E_AP_d_t * f_prim / 1000 + E_G_AP_d_t + E_K_AP_d_t + E_M_AP_d_t
-
-    # 1 時間当たりの調理の設計一次エネルギー消費量
-    E_CC_d_t = E_E_CC_d_t * f_prim / 1000 + E_G_CC_d_t + E_K_CC_d_t + E_M_CC_d_t
-
-    # 1年当たりのその他の設計一次エネルギー消費量
-    E_M = np.sum(E_AP_d_t + E_CC_d_t)  # (11)
-
-    return E_M, E_E_AP_d_t, E_G_AP_d_t, E_K_AP_d_t, E_E_CC_d_t, E_G_CC_d_t, E_K_CC_d_t
-
-
 if __name__ == '__main__':
 
     spec = {
@@ -721,8 +704,8 @@ if __name__ == '__main__':
     # columns = ["電力供給", "外気温度", "電力需要", "太陽電池アレイの発電量1"]
     df = pd.read_csv("input.csv", encoding="SHIFT-JIS")
 
-    print("入力ファイルの表示")
-    print(df)
+#    print("入力ファイルの表示")
+#    print(df)
     
     output_data = pvbatt.calculate(spec, df)
 
