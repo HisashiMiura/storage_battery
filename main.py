@@ -213,8 +213,8 @@ def calc_total_energy(spec: Dict):
     # PV よりもコージェネレーション設備による発電量が優先的に自家消費分にまわされる。
     E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
 
-    # 1時間当たりの太陽光発電設備による発電量のうちの自家消費分, kWh/h
-    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV=spec['PV'] != None)
+    # 1 時間当たりの太陽光発電設備による消費電力削減量（自家消費分） (17-1)(17-2), kWh/h
+    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
 
     # ---- 二次エネの計算 ----
 
@@ -236,9 +236,6 @@ def calc_total_energy(spec: Dict):
 
     # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
     E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
-
-    # 1 時間当たりの太陽光発電設備による消費電力削減量（自家消費分） (17-1)(17-2), kWh/h
-    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
 
     E_S = calc_E_S(spec['CG'], E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG_reverse, E_E_CG_h_d_t, E_E_PV_h_d_t)
 
