@@ -542,14 +542,20 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
     # 1日当たりの給湯設備のガス消費量 (MJ/d)
     E_G_W_d = section2_2.calc_E_G_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, HW, SHC)
 
-    # 実質的な暖房機器の仕様を取得
-    spec_MR, spec_OR = section4_1.get_virtual_heating_devices(region, H_MR, H_OR)
+    if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
+        pass
+    else:
+        # 実質的な暖房機器の仕様を取得
+        spec_MR, spec_OR = section4_1.get_virtual_heating_devices(region, H_MR, H_OR)
+        # 実質的な温水暖房機の仕様を取得
+        spec_HS = section4_1.get_virtual_heatsource(region, H_HS)
+
 
     # 1日当たりのコージェネレーション設備のガス消費量
     if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
         E_G_CG_d_t = np.zeros(365)
     else:
-        E_G_CG_d_t, *args = calc_E_CG_d_t(n_p, spec_MR, spec_OR,  A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR,
+        E_G_CG_d_t, *args = calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR,
                             C_OR,
                             V, L, A_MR, A_OR, A_env, Q, mu_H, mu_C, NV_MR, NV_OR, TS,
                             r_A_ufvnt, HEX, underfloor_insulation, mode_H, mode_C)
@@ -576,7 +582,7 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
     else:
         # 1日当たりのコージェネレーション設備の一次エネルギー消費量
         E_G_CG_d_t, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, _, E_G_CG_ded, e_BB_ave, Q_CG_h = \
-            calc_E_CG_d_t(n_p, spec_MR, spec_OR, A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR, C_OR,
+            calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR, C_OR,
                           V, L, A_MR, A_OR, A_env, Q, mu_H, mu_C, NV_MR, NV_OR, TS,
                                              r_A_ufvnt, HEX, underfloor_insulation, mode_H, mode_C)
 
@@ -587,7 +593,7 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
 
 # 1日当たりのコージェネレーション設備の一次エネルギー消費量
-def calc_E_CG_d_t(n_p, spec_MR, spec_OR, A_A, region, sol_region, HW, SHC, CG, H_A=None, H_MR=None, H_OR=None, H_HS=None, C_A=None, C_MR=None,
+def calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, A_A, region, sol_region, HW, SHC, CG, H_A=None, H_MR=None, H_OR=None, H_HS=None, C_A=None, C_MR=None,
                 C_OR=None,
                 V=None, L=None, A_MR=None, A_OR=None, A_env=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
                 r_A_ufvnt=None, HEX=None, underfloor_insulation=None, mode_H=None, mode_C=None):
@@ -636,9 +642,6 @@ def calc_E_CG_d_t(n_p, spec_MR, spec_OR, A_A, region, sol_region, HW, SHC, CG, H
     
     if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
         raise Exception()
-
-    # 実質的な温水暖房機の仕様を取得
-    spec_HS = section4_1.get_virtual_heatsource(region, H_HS)
 
     # 暖房方式及び運転方法の区分
     mode_MR, mode_OR = calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
