@@ -631,9 +631,15 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
             spec_HS = None
             L_T_H_d_t_i = None
 
+        # 1時間当たりの給湯設備の消費電力量 (s7-1 1)
+        E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
+
+        # 1時間当たりの電力需要 (28)
+        E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+
         # 1時間当たりのコージェネレーション設備の一次エネルギー消費量
         E_G_CG_d_t, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, _, E_G_CG_ded, e_BB_ave, Q_CG_h = \
-            calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, A_MR, A_OR)
+            calc_E_CG_d_t(E_E_dmd_d_t, spec_HW, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, SHC, CG, A_MR, A_OR)
 
         # 1時間当たりのコージェネレーション設備の灯油消費量
         E_K_CG_d_t = np.zeros(365 * 24)
@@ -645,12 +651,12 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
 
 # 1日当たりのコージェネレーション設備の一次エネルギー消費量
-def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, A_MR=None, A_OR=None):
+def calc_E_CG_d_t(E_E_dmd_d_t, spec_HW, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, SHC, CG, A_MR=None, A_OR=None):
     """1時間当たりのコージェネレーション設備の一次エネルギー消費量
 
     Args:
-        E_E_C_d_t:
-        E_E_H_d_t:
+        E_E_dmd_d_t:
+        spec_HW:
         heating_flag_d:
         L_T_H_d_t_i:
         spec_MR: 実質的な暖房機器の仕様(主たる居室)
@@ -661,7 +667,6 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
         A_A(float): 床面積の合計 (m2)
         region(int): 省エネルギー地域区分
         sol_region(int): 年間の日射地域区分(1-5)
-        HW(dict): 給湯機の仕様
         SHC(dict): 集熱式太陽熱利用設備の仕様
         CG(dict): コージェネレーションの機器
         V(dict, optional, optional): 換気設備仕様辞書, defaults to None
@@ -732,22 +737,6 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
         L_dashdash_b2_d_t = hotwater_load['L_dashdash_b2_d_t']
         L_dashdash_ba1_d_t = hotwater_load['L_dashdash_ba1_d_t']
         L_dashdash_ba2_d_t = hotwater_load['L_dashdash_ba2_d_t']
-
-    # 1時間当たりの給湯設備の消費電力量 (s7-1 1)
-    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
-
-    # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
-
-    # 電力需要の結果
-    print('## 電力需要')
-    print('E_E_H  = {} [kWh/年]'.format(np.sum(E_E_H_d_t)))
-    print('E_E_C  = {} [kWh/年]'.format(np.sum(E_E_C_d_t)))
-    print('E_E_V  = {} [kWh/年]'.format(np.sum(E_E_V_d_t)))
-    print('E_E_L  = {} [kWh/年]'.format(np.sum(E_E_L_d_t)))
-    print('E_E_W  = {} [kWh/年]'.format(np.sum(E_E_W_d_t)))
-    print('E_E_AP = {} [kWh/年]'.format(np.sum(E_E_AP_d_t)))
-    print('Total  = {} [kWh/年]'.format(np.sum(E_E_H_d_t + E_E_C_d_t + E_E_V_d_t + E_E_L_d_t + E_E_AP_d_t)))
 
     # 1日当たりのコージェネレーション設備の一次エネルギー消費量
     E_G_CG_d_t, E_E_CG_gen_d_t, E_G_CG_ded, E_E_CG_self, Q_CG_h, E_E_TU_aux_d_t, e_BB_ave = \
