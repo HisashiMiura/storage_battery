@@ -123,8 +123,10 @@ def calc_total_energy(spec: Dict):
 
     # ---- 給湯/コージェネ設備 ----
 
-    # その他または設置しない場合
-    spec_HW = section2_2.get_virtual_hotwater(spec['region'], spec['HW'])
+    # その他または設置しない場合、Dict HW にデフォルト設備を上書きしたものを取得する。
+    # 設置する場合は HW と spec_HW は同じ。
+    # spec_HW は HW の DeepCopy
+    spec_HW = section7_1_b.get_virtual_hotwater(spec['region'], spec['HW'])
 
     # 仮想居住人数
     n_p = section2_2.get_n_p(A_A=spec['A_A'])
@@ -485,7 +487,7 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 def calc_E_W(
     E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
-    spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H_HS=None,
+    spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG, L_HWH, H_HS=None,
     A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
     r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
     """1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
@@ -526,11 +528,6 @@ def calc_E_W(
 
     """
 
-    # その他または設置しない場合、Dict HW にデフォルト設備を上書きしたものを取得する。
-    # 設置する場合は HW と spec_HW は同じ。
-    # spec_HW は HW の DeepCopy
-    spec_HW = section7_1_b.get_virtual_hotwater(region, HW)
-
     # 1時間当たりの給湯設備の消費電力量, kWh/h
     E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
 
@@ -548,11 +545,11 @@ def calc_E_W(
     # 電気の量 1kWh を熱量に換算する係数
     f_prim = get_f_prim()
 
-    if HW is None:
+    if spec_HW is None:
         return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
 
-    elif HW['hw_type'] != 'コージェネレーションを使用する':
+    elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
         E_W_d = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t  # (9)
 
         # (8a)
