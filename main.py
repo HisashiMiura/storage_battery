@@ -581,11 +581,70 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
         return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
     else:
+
+        # 暖房負荷の取得
+        L_T_H_d_t_i, L_dash_H_R_d_t_i = calc_heating_load(
+            region, sol_region,
+            A_A, A_MR, A_OR,
+            Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX,
+            underfloor_insulation, mode_H, mode_C,
+            spec_MR, spec_OR, mode_MR, mode_OR, SHC)
+
+        # 暖房日の計算
+        if SHC is not None and SHC['type'] == '空気集熱式':
+            from pyhees.section3_1_heatingday import get_heating_flag_d
+            heating_flag_d = get_heating_flag_d(L_dash_H_R_d_t_i)
+        else:
+            heating_flag_d = None
+
+        # 暖房
+        E_E_H_d_t = get_E_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, CG, SHC, heating_flag_d, L_T_H_d_t_i)
+
+        # 冷房負荷の計算
+        L_CS_d_t, L_CL_d_t = \
+            section4_1.calc_cooling_load(region, A_A, A_MR, A_OR, Q, mu_H, mu_C,
+                            NV_MR, NV_OR, r_A_ufvnt, underfloor_insulation,
+                            mode_C, mode_H, mode_MR, mode_OR, TS, HEX)
+
+        # 冷房
+        E_E_C_d_t = section4_1.calc_E_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR,
+                                L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
+
+        # 換気
+        E_E_V_d_t = section5.calc_E_E_V_d_t(n_p, A_A, V)
+
+        # 照明
+        E_E_L_d_t = section6.calc_E_E_L_d_t(n_p, A_A, A_MR, A_OR, L)
+
+        # 家電
+        E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
+
+        # その他または設置しない場合
+        spec_HW = section7_1.get_virtual_hotwater(region, HW)
+
+        # 温水暖房負荷の計算
+        if H_HS is not None:
+            import pyhees.section4_1 as H
+            from pyhees.section4_7 import calc_L_HWH
+
+            # 実質的な暖房機器の仕様を取得
+            spec_MR, spec_OR = H.get_virtual_heating_devices(region, H_MR, H_OR)
+
+            # 暖房方式及び運転方法の区分
+            mode_MR, mode_OR = H.calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
+            spec_HS = H.get_virtual_heatsource(region, H_HS)
+
+            L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
+                                            mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
+        else:
+            spec_MR, spec_OR, spec_HS = None, None, None
+            mode_MR, mode_OR = None, None
+            L_T_H_d_t_i = None
+
         # 1日当たりのコージェネレーション設備の一次エネルギー消費量
         E_G_CG_d_t, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, _, E_G_CG_ded, e_BB_ave, Q_CG_h = \
-            calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR, C_OR,
-                          V, L, A_MR, A_OR, A_env, Q, mu_H, mu_C, NV_MR, NV_OR, TS,
-                                             r_A_ufvnt, HEX, underfloor_insulation, mode_H, mode_C)
+            calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG,
+            H_MR, H_OR, H_HS, A_MR, A_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, underfloor_insulation)
 
         # (8b)
         E_CG = np.sum(E_G_CG_d_t)
@@ -594,47 +653,43 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
 
 # 1日当たりのコージェネレーション設備の一次エネルギー消費量
-def calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, H_A=None, H_MR=None, H_OR=None, H_HS=None, C_A=None, C_MR=None,
-                C_OR=None,
-                V=None, L=None, A_MR=None, A_OR=None, A_env=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
-                r_A_ufvnt=None, HEX=None, underfloor_insulation=None, mode_H=None, mode_C=None):
+def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG,
+    H_MR=None, H_OR=None, H_HS=None, A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
+    r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
     """1時間当たりのコージェネレーション設備の一次エネルギー消費量
 
     Args:
-      spec_MR: 実質的な暖房機器の仕様(主たる居室)
-      spec_OR: 実質的な暖房機器の仕様(その他の居室)
-      spec_HS: 実質的な温水暖房機の仕様を取得
-      mode_MR: 暖房方式及び運転方法の区分（主たる居室）
-      mode_OR: 暖房方式及び運転方法の区分（その他の居室）
-      A_A(float): 床面積の合計 (m2)
-      region(int): 省エネルギー地域区分
-      sol_region(int): 年間の日射地域区分(1-5)
-      HW(dict): 給湯機の仕様
-      SHC(dict): 集熱式太陽熱利用設備の仕様
-      CG(dict): コージェネレーションの機器
-      H_A(dict, optional, optional): 暖房方式, defaults to None
-      H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
-      C_A(dict, optional, optional): 冷房方式, defaults to None
-      C_MR(dict, optional, optional): 主たる居室の冷房機器, defaults to None
-      C_OR(dict, optional, optional): その他の居室の冷房機器, defaults to None
-      V(dict, optional, optional): 換気設備仕様辞書, defaults to None
-      L(dict, optional, optional): 照明設備仕様辞書, defaults to None
-      A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
-      A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
-      Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
-      mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
-      mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
-      NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
-      NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
-      TS(bool, optional, optional): 蓄熱, defaults to None
-      r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
-      HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
-      underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
-      mode_H(str, optional, optional): 暖房方式, defaults to None
-      mode_C(str, optional, optional): 冷房方式, defaults to None
-      A_env: Default value = None)
+        E_E_C_d_t:
+        E_E_H_d_t:
+        heating_flag_d:
+        L_T_H_d_t_i:
+        spec_MR: 実質的な暖房機器の仕様(主たる居室)
+        spec_OR: 実質的な暖房機器の仕様(その他の居室)
+        spec_HS: 実質的な温水暖房機の仕様を取得
+        mode_MR: 暖房方式及び運転方法の区分（主たる居室）
+        mode_OR: 暖房方式及び運転方法の区分（その他の居室）
+        A_A(float): 床面積の合計 (m2)
+        region(int): 省エネルギー地域区分
+        sol_region(int): 年間の日射地域区分(1-5)
+        HW(dict): 給湯機の仕様
+        SHC(dict): 集熱式太陽熱利用設備の仕様
+        CG(dict): コージェネレーションの機器
+        H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
+        H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
+        H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
+        V(dict, optional, optional): 換気設備仕様辞書, defaults to None
+        L(dict, optional, optional): 照明設備仕様辞書, defaults to None
+        A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
+        A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
+        Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
+        mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
+        mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
+        NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
+        NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
+        TS(bool, optional, optional): 蓄熱, defaults to None
+        r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
+        HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
+        underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
 
     Returns:
       tuple: 1時間当たりのコージェネレーション設備の一次エネルギー消費量
@@ -643,55 +698,6 @@ def calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region,
       ValueError: SHC の type が "液体集熱式"、 "空気集熱式"　以外の場合に発生する
 
     """
-    
-    if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
-        raise Exception()
-
-    # 暖房負荷の取得
-    L_T_H_d_t_i, L_dash_H_R_d_t_i = calc_heating_load(
-        region, sol_region,
-        A_A, A_MR, A_OR,
-        Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX,
-        underfloor_insulation, mode_H, mode_C,
-        spec_MR, spec_OR, mode_MR, mode_OR, SHC)
-
-    # 暖房日の計算
-    if SHC is not None and SHC['type'] == '空気集熱式':
-        # import section4_1 as H
-        # L_T_H_d_t_i, L_dash_H_R_d_t_i = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, spec_MR, spec_OR,
-        #                                               mode_MR, mode_OR, Q, mu_H, TS, r_A_ufvnt, HEX, SHC,
-        #                                               underfloor_insulation)
-        #
-        from pyhees.section3_1_heatingday import get_heating_flag_d
-
-        heating_flag_d = get_heating_flag_d(L_dash_H_R_d_t_i)
-    else:
-        heating_flag_d = None
-
-    # 暖房
-    E_E_H_d_t = get_E_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR,
-                              CG, SHC, heating_flag_d, L_T_H_d_t_i)
-    # 冷房負荷の計算
-    L_CS_d_t, L_CL_d_t = \
-        section4_1.calc_cooling_load(region, A_A, A_MR, A_OR, Q, mu_H, mu_C,
-                          NV_MR, NV_OR, r_A_ufvnt, underfloor_insulation,
-                          mode_C, mode_H, mode_MR, mode_OR, TS, HEX)
-
-    # 冷房
-    E_E_C_d_t = section4_1.calc_E_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR,
-                               L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
-
-    # 換気
-    E_E_V_d_t = section5.calc_E_E_V_d_t(n_p, A_A, V)
-
-    # 照明
-    E_E_L_d_t = section6.calc_E_E_L_d_t(n_p, A_A, A_MR, A_OR, L)
-
-    # 家電
-    E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
-
-    # その他または設置しない場合
-    spec_HW = section7_1.get_virtual_hotwater(region, HW)
 
     if spec_HW['hw_type'] is not None:
         from pyhees.section7_1 import get_normalized_bath_function
