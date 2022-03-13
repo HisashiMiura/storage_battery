@@ -216,8 +216,25 @@ def calc_total_energy(spec: Dict):
     # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
     E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
 
-    E_S = calc_E_S(spec['region'], spec['sol_region'], spec['PV'], spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t,
-                   E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h)
+    if spec['CG'] is not None:
+        has_CG = True
+        has_CG_reverse = spec['CG']["reverse"] if 'reverse' in spec['CG'] else False
+    else:
+        has_CG = False
+        has_CG_reverse = False
+
+    if spec['PV'] is not None:
+        has_PV = True
+        from pyhees.section11_2 import load_solrad
+        from pyhees.section9_1 import calc_E_E_PV_d_t
+        solrad = load_solrad(spec['region'], spec['sol_region'])
+        # 太陽光発電設備の発電量 (s9-1 1)
+        E_E_PV_d_t = calc_E_E_PV_d_t(spec['PV'], solrad)
+    else:
+        has_PV = False
+        E_E_PV_d_t = np.zeros(24 * 365)
+
+    E_S = calc_E_S(spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG, has_CG_reverse, has_PV, E_E_PV_d_t)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
@@ -575,13 +592,10 @@ def calc_E_V(A_A, V, HEX):
     return E_V, E_E_V_d_t
 
 
-def calc_E_S(region, sol_region, PV, CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h):
+def calc_E_S(CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG, has_CG_reverse, has_PV, E_E_PV_d_t):
     """1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     Args:
-      region(type]): description]
-      sol_region(type]): description]
-      PV(type]): description]
       CG(type]): description]
       E_E_dmd_d_t(ndarray): 1時間当たりの太陽光発電設備による発電量 (kWh/h)
       E_E_CG_gen_d_t(ndarray): 1時間当たりのコージェネレーション設備による発電のうちの自家消費分 (kWh/h)
@@ -595,24 +609,6 @@ def calc_E_S(region, sol_region, PV, CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux
       float: 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     """
-
-    if CG is not None:
-        has_CG = True
-        has_CG_reverse = CG["reverse"] if 'reverse' in CG else False
-    else:
-        has_CG = False
-        has_CG_reverse = False
-
-    if PV is not None:
-        has_PV = True
-        from pyhees.section11_2 import load_solrad
-        from pyhees.section9_1 import calc_E_E_PV_d_t
-        solrad = load_solrad(region, sol_region)
-        # 太陽光発電設備の発電量 (s9-1 1)
-        E_E_PV_d_t = calc_E_E_PV_d_t(PV, solrad)
-    else:
-        has_PV = False
-        E_E_PV_d_t = np.zeros(24 * 365)
 
     # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
     E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
