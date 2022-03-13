@@ -161,7 +161,7 @@ def calc_total_energy(spec: Dict):
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
     E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(spec_MR, spec_OR, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
+            = calc_E_W(spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
                       spec['H_A'], spec['H_HS'], spec['C_A'], spec['C_MR'], spec['C_OR'],
                       spec['V'],
                       spec['L'], spec['A_MR'], spec['A_OR'], A_env, Q, eta_H, eta_C,
@@ -488,7 +488,7 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 
 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
-def calc_E_W(spec_MR, spec_OR, n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_HS=None, C_A=None, C_MR=None,
+def calc_E_W(spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_HS=None, C_A=None, C_MR=None,
             C_OR=None,
             V=None, L=None, A_MR=None, A_OR=None, A_env=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
             r_A_ufvnt=None, HEX=None, underfloor_insulation=None, mode_H=None, mode_C=None):
@@ -565,12 +565,6 @@ def calc_E_W(spec_MR, spec_OR, n_p, heating_flag_d, A_A, region, sol_region, HW,
         return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
     else:
-
-        # 暖房方式及び運転方法の区分
-        mode_MR, mode_OR = calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
-
-        # 実質的な温水暖房機の仕様を取得
-        spec_HS = section4_1.get_virtual_heatsource(region, H_HS)
 
         # 暖房負荷の取得
         L_T_H_d_t_i, L_dash_H_R_d_t_i = calc_heating_load(
