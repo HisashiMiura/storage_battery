@@ -576,7 +576,7 @@ def calc_E_W(
             L_T_H_d_t_i = None
 
         # 1時間当たりの給湯設備の消費電力量 (s7-1 1)
-        E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
+        # E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
 
         # 1時間当たりの電力需要 (28)
         E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
