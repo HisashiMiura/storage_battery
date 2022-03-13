@@ -682,10 +682,32 @@ def calc_E_CG_d_t(E_E_dmd_d_t, spec_HW, heating_flag_d, L_T_H_d_t_i, n_p, spec_M
 
     """
 
+    # ふろ機能の修正
     if spec_HW['hw_type'] is not None:
-        from pyhees.section7_1 import get_normalized_bath_function
-        # ふろ機能の修正
-        bath_function = get_normalized_bath_function(spec_HW['hw_type'], spec_HW['bath_function'])
+        bath_function = section7_1.get_normalized_bath_function(spec_HW['hw_type'], spec_HW['bath_function'])
+    else:
+        bath_function = None
+
+    L_dashdash_k_d_t, L_dashdash_s_d_t, L_dashdash_w_d_t, L_dashdash_b1_d_t, L_dashdash_b2_d_t, L_dashdash_ba1_d_t, L_dashdash_ba2_d_t = calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function)
+
+    # 1日当たりのコージェネレーション設備の一次エネルギー消費量
+    E_G_CG_d_t, E_E_CG_gen_d_t, E_G_CG_ded, E_E_CG_self, Q_CG_h, E_E_TU_aux_d_t, e_BB_ave = \
+        section8.calc_E_G_CG_d_t(bath_function, CG, E_E_dmd_d_t,
+                        L_dashdash_k_d_t, L_dashdash_w_d_t, L_dashdash_s_d_t, L_dashdash_b1_d_t,
+                        L_dashdash_b2_d_t,
+                        L_dashdash_ba1_d_t, L_dashdash_ba2_d_t,
+                        spec_HS, spec_MR, spec_OR, A_A, A_MR, A_OR, region, mode_MR, mode_OR,
+                        L_T_H_d_t_i)
+
+    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
+    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, True)
+
+    return E_G_CG_d_t, E_E_CG_gen_d_t, E_E_CG_h_d_t, E_E_TU_aux_d_t, E_E_CG_h_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h
+
+
+def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function):
+
+    if spec_HW['hw_type'] is not None:
 
         # 給湯負荷の生成
         args = {
@@ -738,19 +760,7 @@ def calc_E_CG_d_t(E_E_dmd_d_t, spec_HW, heating_flag_d, L_T_H_d_t_i, n_p, spec_M
         L_dashdash_ba1_d_t = hotwater_load['L_dashdash_ba1_d_t']
         L_dashdash_ba2_d_t = hotwater_load['L_dashdash_ba2_d_t']
 
-    # 1日当たりのコージェネレーション設備の一次エネルギー消費量
-    E_G_CG_d_t, E_E_CG_gen_d_t, E_G_CG_ded, E_E_CG_self, Q_CG_h, E_E_TU_aux_d_t, e_BB_ave = \
-        section8.calc_E_G_CG_d_t(bath_function, CG, E_E_dmd_d_t,
-                        L_dashdash_k_d_t, L_dashdash_w_d_t, L_dashdash_s_d_t, L_dashdash_b1_d_t,
-                        L_dashdash_b2_d_t,
-                        L_dashdash_ba1_d_t, L_dashdash_ba2_d_t,
-                        spec_HS, spec_MR, spec_OR, A_A, A_MR, A_OR, region, mode_MR, mode_OR,
-                        L_T_H_d_t_i)
-
-    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
-    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, True)
-
-    return E_G_CG_d_t, E_E_CG_gen_d_t, E_E_CG_h_d_t, E_E_TU_aux_d_t, E_E_CG_h_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h
+    return L_dashdash_k_d_t,L_dashdash_s_d_t,L_dashdash_w_d_t,L_dashdash_b1_d_t,L_dashdash_b2_d_t,L_dashdash_ba1_d_t,L_dashdash_ba2_d_t
 
 
 def calc_E_L(A_A, A_MR, A_OR, L):
