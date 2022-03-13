@@ -201,17 +201,17 @@ def calc_total_energy(spec: Dict):
     
     # 1時間当たりの太陽光発電設備による発電量(s9-1 1), kWh/h
     if has_PV:
-#        from pyhees.section11_2 import load_solrad
-#        from pyhees.section9_1 import calc_E_E_PV_d_t
-#        solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
         E_E_PV_d_t = section9_1.calc_E_E_PV_d_t(spec['PV'], solrad)
     else:
         E_E_PV_d_t = np.zeros(24 * 365)
 
-#    E_E_PV_d_t = calc_E_E_PV_d_t(spec['PV'], solrad)
-
     # 1時間当たりの電力需要, KWh/h
     E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+
+    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
+    # コージェネレーション設備による発電量と電力需要を比較する。
+    # PV よりもコージェネレーション設備による発電量が優先的に自家消費分にまわされる。
+    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
 
     # 1時間当たりの太陽光発電設備による発電量のうちの自家消費分, kWh/h
     E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV=spec['PV'] != None)
@@ -237,7 +237,7 @@ def calc_total_energy(spec: Dict):
     # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
     E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
 
-    E_S = calc_E_S(spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG, has_CG_reverse, has_PV, E_E_PV_d_t)
+    E_S = calc_E_S(spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG_reverse, has_PV, E_E_PV_d_t, E_E_CG_h_d_t)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
@@ -595,7 +595,7 @@ def calc_E_V(A_A, V, HEX):
     return E_V, E_E_V_d_t
 
 
-def calc_E_S(CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG, has_CG_reverse, has_PV, E_E_PV_d_t):
+def calc_E_S(CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG_reverse, has_PV, E_E_PV_d_t, E_E_CG_h_d_t):
     """1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     Args:
@@ -612,9 +612,6 @@ def calc_E_S(CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_d
       float: 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     """
-
-    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
-    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
 
     # 1 時間当たりの太陽光発電設備による消費電力削減量 (17-1)(17-2)
     E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
