@@ -134,7 +134,7 @@ def calc_total_energy(spec: Dict):
     # E_G_CG_ded: 1年あたりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
-    E_W, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, E_E_CG_h_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t \
+    E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t \
             = calc_E_W(spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
                       spec['H_A'],
                       spec['H_MR'], spec['H_OR'], spec['H_HS'], spec['C_A'], spec['C_MR'], spec['C_OR'],
@@ -518,7 +518,7 @@ def calc_E_W(A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_MR=None, H
     E_K_CG_d_t = np.zeros(365*24)
 
     if HW is None:
-        return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), \
+        return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
 
     if HW['hw_type'] != 'コージェネレーションを使用する':
@@ -528,7 +528,7 @@ def calc_E_W(A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_MR=None, H
         # (8a)
         E_W = np.sum(E_W_d)
 
-        return E_W, np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), \
+        return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
     else:
         # 1日当たりのコージェネレーション設備の一次エネルギー消費量
@@ -540,7 +540,7 @@ def calc_E_W(A_A, region, sol_region, HW, SHC, CG, L_HWH, H_A=None, H_MR=None, H
         # (8b)
         E_CG = np.sum(E_G_CG_d_t)
 
-        return E_CG, E_E_CG_gen_d_t, E_E_CG_h_d_t, E_E_TU_aux_d_t, E_E_CG_h_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
+        return E_CG, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
 
 
 def calc_E_L(A_A, A_MR, A_OR, L):
