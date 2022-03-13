@@ -1,6 +1,6 @@
 from typing import Dict
 import numpy as np
-from math import radians
+from math import radians, ceil
 from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
 import pandas as pd
 
@@ -193,6 +193,12 @@ def calc_total_energy(spec: Dict):
 
     # ---- 合計 ----
     E_T = section2_1.get_E_T(E_H, E_C, E_V, E_L, E_W, E_S, E_M)
+    
+    # 1 年当たりの設計一次エネルギー消費量（MJ/年）(s2-2-1)
+    E_T_star = E_H + E_C + E_V + E_L + E_W - E_S + E_M
+
+    # 小数点以下一位未満の端数があるときはこれを切り上げてMJをGJに変更する
+    E_T = ceil(E_T_star / 100) / 10  # (1)
 
     print('===============================')
     print('参照値: ' + str(results[0]))
