@@ -574,7 +574,7 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
 
     if HW['hw_type'] != 'コージェネレーションを使用する':
-        E_W_d = section2_2.calc_E_W_d(A_A, region, sol_region, HW, SHC, H_HS, H_MR, H_OR, A_MR, A_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX,
+        E_W_d = calc_E_W_d(A_A, region, sol_region, HW, SHC, H_HS, H_MR, H_OR, A_MR, A_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX,
                           underfloor_insulation)
 
         # (8a)
@@ -844,7 +844,7 @@ def calc_E_W_d(A_A, region, sol_region, HW, SHC, H_HS=None, H_MR=None, H_OR=None
     n_p = section2_2.get_n_p(A_A)
 
     # その他または設置しない場合
-    spec_HW = section7_1.get_virtual_hotwater(region, HW)
+    spec_HW = section2_2.get_virtual_hotwater(region, HW)
 
     # 温水暖房負荷の計算
     L_HWH = section2_2.calc_L_HWH(A_A, A_MR, A_OR, HEX, H_HS, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region, sol_region,
