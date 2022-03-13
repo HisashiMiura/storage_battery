@@ -152,6 +152,8 @@ def calc_total_energy(spec: Dict):
         underfloor_insulation=spec['underfloor_insulation']
     )
     
+    f_prim = section2_1.get_f_prim()
+
     # 1時間当たりの給湯設備の消費電力量, kWh/h
     # 給湯設備が無い場合・コージェネレーションの場合は0とする。
     E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
@@ -167,11 +169,9 @@ def calc_total_energy(spec: Dict):
     # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
     E_M_W_d_t = section7_1.get_E_M_W_d_t()
     
-    # 1 年当たりの照明設備の設計一次エネルギー消費量
-    E_L, E_E_L_d_t = calc_E_L(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
+    E_E_L_d_t = section2_2.calc_E_E_L_d_t(n_p, spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
 
-    # 1 年当たりの機械換気設備の設計一次エネルギー消費量
-    E_V, E_E_V_d_t = calc_E_V(spec['A_A'], spec['V'], spec['HEX'])
+    E_E_V_d_t = section2_2.calc_E_E_V_d_t(n_p, spec['A_A'], spec['V'], spec['HEX'])
 
     #region その他の一次エネルギー消費量
 
@@ -201,7 +201,6 @@ def calc_total_energy(spec: Dict):
 
     #endregion
 
-
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
     # E_E_TU_aux_d_t: 1時間当たりのタンクユニットの補機消費電力量 (kWh/h)
@@ -216,6 +215,12 @@ def calc_total_energy(spec: Dict):
     f_prim = section2_1.get_f_prim()
 
     E_W_d_t = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t + E_G_CG_d_t + E_K_CG_d_t
+
+    # 1 年当たりの照明設備の設計一次エネルギー消費量
+    E_L = np.sum(E_E_L_d_t) * f_prim / 1000  # (7)
+
+    # 1 年当たりの機械換気設備の設計一次エネルギー消費量
+    E_V = np.sum(E_E_V_d_t) * f_prim / 1000
 
     E_W = np.sum(E_W_d_t)
 
@@ -633,58 +638,6 @@ def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, b
         L_dashdash_ba2_d_t = hotwater_load['L_dashdash_ba2_d_t']
 
     return L_dashdash_k_d_t,L_dashdash_s_d_t,L_dashdash_w_d_t,L_dashdash_b1_d_t,L_dashdash_b2_d_t,L_dashdash_ba1_d_t,L_dashdash_ba2_d_t
-
-
-def calc_E_L(A_A, A_MR, A_OR, L):
-    """1 年当たりの照明設備の設計一次エネルギー消費量
-
-    Args:
-      A_A(float): 床面積の合計 (m2)
-      A_MR(float): 主たる居室の床面積 (m2)
-      A_OR(float): その他の居室の床面積 (m2)
-      L(dict): 照明設備仕様辞書
-
-    Returns:
-      ndarray: 1 年当たりの照明設備の設計一次エネルギー消費量
-
-    """
-    
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = get_f_prim()
-
-    n_p = section2_2.get_n_p(A_A)
-
-    E_E_L_d_t = section2_2.calc_E_E_L_d_t(n_p, A_A, A_MR, A_OR, L)
-
-    E_L = np.sum(E_E_L_d_t) * f_prim / 1000  # (7)
-
-    return E_L, E_E_L_d_t
-
-
-def calc_E_V(A_A, V, HEX):
-    """1 年当たりの機械換気設備の設計一次エネルギー消費量
-
-    Args:
-      A_A(float): 床面積の合計[m^2]
-      V(dict): 換気設備仕様辞書
-      HEX(dict): 熱交換器型設備仕様辞書
-
-    Returns:
-      float: 1 年当たりの機械換気設備の設計一次エネルギー消費量
-
-    """
-    
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = get_f_prim()
-
-    n_p = section2_2.get_n_p(A_A)
-
-    E_E_V_d_t = section2_2.calc_E_E_V_d_t(n_p, A_A, V, HEX)
-
-    # (6)
-    E_V = np.sum(E_E_V_d_t) * f_prim / 1000
-
-    return E_V, E_E_V_d_t
 
 
 if __name__ == '__main__':
