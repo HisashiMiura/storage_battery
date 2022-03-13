@@ -210,13 +210,17 @@ def calc_total_energy(spec: Dict):
     # E_G_CG_ded: 1年あたりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
-    E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_M_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
+    E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
+            = calc_E_W(E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
                       spec['H_HS'], spec['A_MR'], spec['A_OR'], Q, eta_H, eta_C,
                       spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
                       spec['underfloor_insulation'])
     
     f_prim = section2_1.get_f_prim()
+
+    E_W_d_t = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t + E_G_CG_d_t + E_K_CG_d_t
+
+    E_W = np.sum(E_W_d_t)
 
     if spec['CG'] is not None:
         has_CG = True
@@ -499,7 +503,7 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 def calc_E_W(
-    E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_M_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
+    E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
     spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG, L_HWH, H_HS=None,
     A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
     r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
@@ -541,20 +545,13 @@ def calc_E_W(
 
     """
 
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = get_f_prim()
-
     if spec_HW is None:
-        return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
+        return np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
 
     elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
-        E_W_d = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t  # (9)
 
-        # (8a)
-        E_W = np.sum(E_W_d)
-
-        return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
+        return np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
     else:
 
@@ -597,10 +594,7 @@ def calc_E_W(
         # 1時間当たりのコージェネレーション設備の灯油消費量
         E_K_CG_d_t = np.zeros(365 * 24)
 
-        # (8b)
-        E_CG = np.sum(E_G_CG_d_t)
-
-        return E_CG, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t
+        return E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t
 
 
 def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function):
