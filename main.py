@@ -16,7 +16,7 @@ import pvbatt2
 import pvbatt
 from pyhees import section11_2
 from pyhees import section9_1
-from pyhees import section4_1, section5, section6, section7_1, section8
+from pyhees import section4_1, section5, section6, section7_1, section7_1_b, section8
 
 def calc_total_energy(spec: Dict):
 
@@ -533,14 +533,17 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
     """
 
-    # その他または設置しない場合
-    spec_HW = section2_2.get_virtual_hotwater(region, HW)
+    # その他または設置しない場合、Dict HW にデフォルト設備を上書きしたものを取得する。
+    # 設置する場合は HW と spec_HW は同じ。
+    # spec_HW は HW の DeepCopy
+    spec_HW = section7_1_b.get_virtual_hotwater(region, HW)
 
     # 1日当たりの給湯設備の消費電力量
-    E_E_W_d_t = section2_2.calc_E_E_W_d_t(n_p, L_HWH, heating_flag_d, region, sol_region, spec_HW, SHC)
+    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
 
     # 1日当たりの給湯設備のガス消費量 (MJ/d)
-    E_G_W_d = section2_2.calc_E_G_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, HW, SHC)
+    # 引数に A_A が指定されているが使用されていないので、None をわたすようにした。
+    E_G_W_d = section7_1.calc_E_G_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, A_A=None, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
 
     if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
         pass
@@ -564,18 +567,37 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
                             r_A_ufvnt, HEX, underfloor_insulation, mode_H, mode_C)
 
     # 1日当たりの給湯設備の灯油消費量 (MJ/d)
-    E_K_W_d_t = section2_2.calc_E_K_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, HW, SHC)
+    # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
+    E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
 
     # 1日当たりのコージェネレーション設備の灯油消費量
     E_K_CG_d_t = np.zeros(365*24)
+
+    # 電気の量 1kWh を熱量に換算する係数
+    f_prim = get_f_prim()
 
     if HW is None:
         return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
 
     if HW['hw_type'] != 'コージェネレーションを使用する':
-        E_W_d = calc_E_W_d(A_A, region, sol_region, HW, SHC, H_HS, H_MR, H_OR, A_MR, A_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX,
-                          underfloor_insulation)
+        # その他または設置しない場合
+        spec_HW = section2_2.get_virtual_hotwater(region, HW)
+
+        # 温水暖房負荷の計算
+        L_HWH = section2_2.calc_L_HWH(A_A, A_MR, A_OR, HEX, H_HS, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region, sol_region, underfloor_insulation)
+
+        # 暖房日の計算
+        heating_flag_d = section2_2.calc_heating_flag_d(A_A, A_MR, A_OR, HEX, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region, sol_region, underfloor_insulation)
+
+        E_E_W_d = section2_2.calc_E_E_W_d_t(n_p, L_HWH, heating_flag_d, region, sol_region, spec_HW, SHC)
+        E_G_W_d = section2_2.calc_E_G_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
+        E_K_W_d = section2_2.calc_E_K_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
+        E_M_W_d = section2_2.get_E_M_W_d_t()
+
+
+    if HW['hw_type'] != 'コージェネレーションを使用する':
+        E_W_d = E_E_W_d * f_prim / 1000 + E_G_W_d + E_K_W_d + E_M_W_d  # (9)
 
         # (8a)
         E_W = np.sum(E_W_d)
@@ -799,74 +821,6 @@ def calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region,
     E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, True)
 
     return E_G_CG_d_t, E_E_CG_gen_d_t, E_E_CG_h_d_t, E_E_TU_aux_d_t, E_E_CG_h_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h
-
-
-def calc_E_W_d(A_A, region, sol_region, HW, SHC, H_HS=None, H_MR=None, H_OR=None, A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None, r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
-    """1 日当たりの給湯設備の設計一次エネルギー消費量
-
-    Args:
-      A_A(float): 床面積の合計 (m2)
-      region(int): 省エネルギー地域区分
-      sol_region(int): 年間の日射地域区分(1-5)
-      HW(dict): 給湯機の仕様
-      SHC(dict): 集熱式太陽熱利用設備の仕様
-      H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
-      H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
-      A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
-      A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
-      Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
-      mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
-      mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
-      NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
-      NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
-      TS(bool, optional, optional): 蓄熱, defaults to None
-      r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
-      HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
-      underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
-
-    Returns:
-      ndarray: 1 日当たりの給湯設備の設計一次エネルギー消費量
-
-    Raises:
-      ValueError: コージェネは対象外。HW の hw_type が 'コージェネレーションを使用する' であった場合発生する。
-
-    """
-    
-    # コージェネは対象外
-    if HW['hw_type'] == 'コージェネレーションを使用する':
-        raise ValueError(HW['hw_type'])
-
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = get_f_prim()
-
-    # 想定人数
-    n_p = section2_2.get_n_p(A_A)
-
-    # その他または設置しない場合
-    spec_HW = section2_2.get_virtual_hotwater(region, HW)
-
-    # 温水暖房負荷の計算
-    L_HWH = section2_2.calc_L_HWH(A_A, A_MR, A_OR, HEX, H_HS, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region, sol_region,
-                       underfloor_insulation)
-
-    # 暖房日の計算
-    heating_flag_d = section2_2.calc_heating_flag_d(A_A, A_MR, A_OR, HEX, H_MR, H_OR, Q, SHC, TS, mu_H, mu_C, NV_MR, NV_OR, r_A_ufvnt, region,
-                                         sol_region, underfloor_insulation)
-
-    E_E_W_d = section2_2.calc_E_E_W_d_t(n_p, L_HWH, heating_flag_d, region, sol_region, spec_HW, SHC)
-    E_G_W_d = section2_2.calc_E_G_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
-    E_K_W_d = section2_2.calc_E_K_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
-    E_M_W_d = section2_2.get_E_M_W_d_t()
-
-    print('E_E_W = {} [MJ]'.format(np.sum(E_E_W_d)))
-    print('E_G_W = {} [MJ]'.format(np.sum(E_G_W_d)))
-    print('E_K_W = {} [MJ]'.format(np.sum(E_K_W_d)))
-    print('E_M_W = {} [MJ]'.format(np.sum(E_M_W_d)))
-
-    E_W_d = E_E_W_d * f_prim / 1000 + E_G_W_d + E_K_W_d + E_M_W_d  # (9)
-
-    return E_W_d
 
 
 def calc_E_L(A_A, A_MR, A_OR, L):
