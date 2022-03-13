@@ -235,6 +235,9 @@ def calc_total_energy(spec: Dict):
     # 1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
     E_S_sell = section2_2.get_E_S_sell(E_G_CG_sell)
 
+    # 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
+    E_S_h = section2_2.calc_E_S_h(E_E_PV_h_d_t, E_E_CG_h_d_t)
+
     # ---- 二次エネの計算 ----
 
     # 1時間当たりの設計消費電力量（二次）, kWh/h
@@ -253,7 +256,7 @@ def calc_total_energy(spec: Dict):
 
     # ---- エネルギー利用効率化の評価 ----
 
-    E_S = calc_E_S(E_E_CG_h_d_t, E_E_PV_h_d_t, E_S_sell)
+    E_S = calc_E_S(E_S_sell, E_S_h)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
@@ -611,7 +614,7 @@ def calc_E_V(A_A, V, HEX):
     return E_V, E_E_V_d_t
 
 
-def calc_E_S(E_E_CG_h_d_t, E_E_PV_h_d_t, E_S_sell):
+def calc_E_S(E_S_sell, E_S_h):
     """1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     Args:
@@ -620,9 +623,6 @@ def calc_E_S(E_E_CG_h_d_t, E_E_PV_h_d_t, E_S_sell):
       float: 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
 
     """
-
-    # 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
-    E_S_h = section2_2.calc_E_S_h(E_E_PV_h_d_t, E_E_CG_h_d_t)
 
     # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
     E_S = section2_2.get_E_S(E_S_h, E_S_sell)
