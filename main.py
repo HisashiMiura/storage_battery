@@ -221,7 +221,7 @@ def calc_total_energy(spec: Dict):
     E_E_CG_sell_d_t = section2_2.get_E_E_CG_sell_d_t(E_E_CG_gen_d_t, E_E_CG_h_d_t, has_CG_reverse)
 
     # 1年当たりのコージェネレーション設備による売電量（一次エネルギー換算値）(MJ/yr) (23)
-    E_CG_sell = section2_2.calc_E_CG_sell(E_E_CG_sell_d_t)
+    E_CG_sell = np.sum(E_E_CG_sell_d_t) * f_prim / 1000
 
     # ---- 二次エネの計算 ----
 
