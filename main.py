@@ -191,9 +191,6 @@ def calc_total_energy(spec: Dict):
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
-    # ---- 合計 ----
-    E_T = section2_1.get_E_T(E_H, E_C, E_V, E_L, E_W, E_S, E_M)
-    
     # 1 年当たりの設計一次エネルギー消費量（MJ/年）(s2-2-1)
     E_T_star = E_H + E_C + E_V + E_L + E_W - E_S + E_M
 
