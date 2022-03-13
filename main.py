@@ -186,12 +186,6 @@ def calc_total_energy(spec: Dict):
     
     f_prim = section2_1.get_f_prim()
 
-    # 1年当たりのその他の設計一次エネルギー消費量
-    E_M = np.sum(
-        E_E_AP_d_t * f_prim / 1000 + E_G_AP_d_t + E_K_AP_d_t + E_M_AP_d_t
-        + E_E_CC_d_t * f_prim / 1000 + E_G_CC_d_t + E_K_CC_d_t + E_M_CC_d_t
-    )
-
     # 1時間当たりの太陽光発電設備による発電量, kWh/h
     E_E_PV_d_t = calc_E_E_PV_d_t(spec['PV'], solrad)
 
@@ -221,10 +215,17 @@ def calc_total_energy(spec: Dict):
 
     # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
     E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
-    E_S = section2_2.calc_E_S(spec['region'], spec['sol_region'], spec['PV'], spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t,
+
+    E_S = calc_E_S(spec['region'], spec['sol_region'], spec['PV'], spec['CG'], E_E_dmd_d_t, E_E_CG_gen_d_t,
                    E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
+
+    # 1年当たりのその他の設計一次エネルギー消費量
+    E_M = np.sum(
+        E_E_AP_d_t * f_prim / 1000 + E_G_AP_d_t + E_K_AP_d_t + E_M_AP_d_t
+        + E_E_CC_d_t * f_prim / 1000 + E_G_CC_d_t + E_K_CC_d_t + E_M_CC_d_t
+    )
 
     # 1 年当たりの設計一次エネルギー消費量（MJ/年）(s2-2-1)
     E_T_star = E_H + E_C + E_V + E_L + E_W - E_S + E_M
@@ -572,6 +573,75 @@ def calc_E_V(A_A, V, HEX):
     E_V = np.sum(E_E_V_d_t) * f_prim / 1000
 
     return E_V, E_E_V_d_t
+
+
+def calc_E_S(region, sol_region, PV, CG, E_E_dmd_d_t, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h):
+    """1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
+
+    Args:
+      region(type]): description]
+      sol_region(type]): description]
+      PV(type]): description]
+      CG(type]): description]
+      E_E_dmd_d_t(ndarray): 1時間当たりの太陽光発電設備による発電量 (kWh/h)
+      E_E_CG_gen_d_t(ndarray): 1時間当たりのコージェネレーション設備による発電のうちの自家消費分 (kWh/h)
+      E_E_TU_aux_d_t(ndarray): 1時間当たりのタンクユニットの補機消費電力量 (25)
+      E_E_CG_h(float): 1年当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/yr) (18)
+      E_G_CG_ded(float): 1年当たりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
+      e_BB_ave(float): コージェネレーション設備の給湯時のバックアップボイラーの年間平均効率 (-)
+      Q_CG_h(float): 1年当たりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
+
+    Returns:
+      float: 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (14)
+
+    """
+
+    if CG is not None:
+        has_CG = True
+        has_CG_reverse = CG["reverse"] if 'reverse' in CG else False
+    else:
+        has_CG = False
+        has_CG_reverse = False
+
+    if PV is not None:
+        has_PV = True
+        from pyhees.section11_2 import load_solrad
+        from pyhees.section9_1 import calc_E_E_PV_d_t
+        solrad = load_solrad(region, sol_region)
+        # 太陽光発電設備の発電量 (s9-1 1)
+        E_E_PV_d_t = calc_E_E_PV_d_t(PV, solrad)
+    else:
+        has_PV = False
+        E_E_PV_d_t = np.zeros(24 * 365)
+
+    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
+    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
+
+    # 1 時間当たりの太陽光発電設備による消費電力削減量 (17-1)(17-2)
+    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
+
+    # 1時間当たりのコージェネレーション設備による売電量(二次エネルギー) (kWh/h) (24-1)(24-2)
+    E_E_CG_sell_d_t = section2_2.get_E_E_CG_sell_d_t(E_E_CG_gen_d_t, E_E_CG_h_d_t, has_CG_reverse)
+
+    # 1年当たりのコージェネレーション設備による売電量（一次エネルギー換算値）(MJ/yr) (23)
+    E_CG_sell = section2_2.calc_E_CG_sell(E_E_CG_sell_d_t)
+
+    # 1年当たりのコージェネレーション設備による発電量のうちの自己消費分 (kWH/yr) (s8 4)
+    E_E_CG_self = section2_2.get_E_E_CG_self(E_E_TU_aux_d_t)
+
+    # 1年当たりのコージェネレーション設備による売電量に係るガス消費量の控除量 (MJ/yr) (20)
+    E_G_CG_sell = section2_2.calc_E_G_CG_sell(E_CG_sell, E_E_CG_self, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, CG != None)
+
+    # 1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
+    E_S_sell = section2_2.get_E_S_sell(E_G_CG_sell)
+
+    # 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
+    E_S_h = section2_2.calc_E_S_h(E_E_PV_h_d_t, E_E_CG_h_d_t)
+
+    # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
+    E_S = section2_2.get_E_S(E_S_h, E_S_sell)
+
+    return E_S
 
 
 if __name__ == '__main__':
