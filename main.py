@@ -233,13 +233,13 @@ def calc_total_energy(spec: Dict):
     E_G_CG_sell = section2_2.calc_E_G_CG_sell(E_CG_sell, E_E_CG_self, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG)
 
     # 1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
-    E_S_sell = section2_2.get_E_S_sell(E_G_CG_sell)
+    E_S_sell = E_G_CG_sell
 
     # 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
-    E_S_h = section2_2.calc_E_S_h(E_E_PV_h_d_t, E_E_CG_h_d_t)
+    E_S_h = np.sum(E_E_PV_h_d_t + E_E_CG_h_d_t) * f_prim / 1000
 
     # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
-    E_S = section2_2.get_E_S(E_S_h, E_S_sell)
+    E_S = E_S_h + E_S_sell
 
     # ---- 二次エネの計算 ----
 
