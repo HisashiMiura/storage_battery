@@ -555,17 +555,6 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
         # 暖房方式及び運転方法の区分
         mode_MR, mode_OR = calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
 
-
-
-    # 1日当たりのコージェネレーション設備のガス消費量
-    if HW is None or HW['hw_type'] != 'コージェネレーションを使用する':
-        E_G_CG_d_t = np.zeros(365)
-    else:
-        E_G_CG_d_t, *args = calc_E_CG_d_t(n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, H_A, H_MR, H_OR, H_HS, C_A, C_MR,
-                            C_OR,
-                            V, L, A_MR, A_OR, A_env, Q, mu_H, mu_C, NV_MR, NV_OR, TS,
-                            r_A_ufvnt, HEX, underfloor_insulation, mode_H, mode_C)
-
     # 1日当たりの給湯設備の灯油消費量 (MJ/d)
     # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
     E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
@@ -573,20 +562,15 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
     # 1日当たりのコージェネレーション設備の灯油消費量
     E_K_CG_d_t = np.zeros(365*24)
 
+    # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_W_d_t = section7_1.get_E_M_W_d_t()
+    
     # 電気の量 1kWh を熱量に換算する係数
     f_prim = get_f_prim()
 
     if HW is None:
         return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
-               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_G_CG_d_t, E_K_CG_d_t
-
-    if HW['hw_type'] != 'コージェネレーションを使用する':
-
-        E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_HWH, heating_flag_d, region, sol_region, spec_HW, SHC)
-        E_G_W_d_t = section7_1.calc_E_G_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
-        E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p, L_HWH, heating_flag_d, A_A, region, sol_region, spec_HW, SHC)
-        E_M_W_d_t = section7_1.get_E_M_W_d_t()
-
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
 
     if HW['hw_type'] != 'コージェネレーションを使用する':
         E_W_d = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t  # (9)
@@ -595,7 +579,7 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
         E_W = np.sum(E_W_d)
 
         return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
-               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
     else:
         # 1日当たりのコージェネレーション設備の一次エネルギー消費量
         E_G_CG_d_t, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, _, E_G_CG_ded, e_BB_ave, Q_CG_h = \
