@@ -619,10 +619,6 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
         # 温水暖房負荷の計算
         if H_HS is not None:
             import pyhees.section4_1 as H
-            from pyhees.section4_7 import calc_L_HWH
-
-            # 実質的な暖房機器の仕様を取得
-            spec_MR, spec_OR = H.get_virtual_heating_devices(region, H_MR, H_OR)
 
             # 暖房方式及び運転方法の区分
             mode_MR, mode_OR = H.calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
@@ -631,7 +627,6 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
             L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
                                             mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
         else:
-            spec_MR, spec_OR, spec_HS = None, None, None
             mode_MR, mode_OR = None, None
             L_T_H_d_t_i = None
 
@@ -755,10 +750,6 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
     # 温水暖房負荷の計算
     if H_HS is not None:
         import pyhees.section4_1 as H
-        from pyhees.section4_7 import calc_L_HWH
-
-        # 実質的な暖房機器の仕様を取得
-        spec_MR, spec_OR = H.get_virtual_heating_devices(region, H_MR, H_OR)
 
         # 暖房方式及び運転方法の区分
         mode_MR, mode_OR = H.calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
@@ -767,7 +758,7 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
         L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
                                         mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
     else:
-        spec_MR, spec_OR, spec_HS = None, None, None
+        spec_HS = None
         mode_MR, mode_OR = None, None
         L_T_H_d_t_i = None
 
