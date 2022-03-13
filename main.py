@@ -202,22 +202,6 @@ def calc_total_energy(spec: Dict):
     #endregion
 
 
-    if spec_HW is None:
-        pass
-    elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
-        pass
-    else:
-        # 温水暖房負荷の計算
-        if spec['H_HS'] is not None:
-            L_T_H_d_t_i, _ = section4_1.calc_L_H_d_t(
-                spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'], None, None,
-                spec_MR, spec_OR, mode_MR, mode_OR, Q, eta_H, eta_C,
-                spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'], spec['SHC'], spec['underfloor_insulation']
-            )
-        else:
-            L_T_H_d_t_i = None
-
-
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
     # E_E_TU_aux_d_t: 1時間当たりのタンクユニットの補機消費電力量 (kWh/h)
