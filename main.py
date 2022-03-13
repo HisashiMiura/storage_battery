@@ -200,21 +200,34 @@ def calc_total_energy(spec: Dict):
     E_M_CC_d_t = section10.get_E_M_CC_d_t()
 
     #endregion
-    
+
+
+    if spec_HW is None:
+        pass
+    elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
+        pass
+    else:
+        # 温水暖房負荷の計算
+        if spec['H_HS'] is not None:
+            L_T_H_d_t_i, _ = section4_1.calc_L_H_d_t(
+                spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'], None, None,
+                spec_MR, spec_OR, mode_MR, mode_OR, Q, eta_H, eta_C,
+                spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'], spec['SHC'], spec['underfloor_insulation']
+            )
+        else:
+            L_T_H_d_t_i = None
+
+
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
-    # E_W: 1時間当たりの給湯設備またはコージェネレーション設備のガス消費量 (MJ/h)
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
-    # E_E_CG_h_d_t: 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h)
     # E_E_TU_aux_d_t: 1時間当たりのタンクユニットの補機消費電力量 (kWh/h)
-    # E_E_CG_h_d_t: 上記と同じ
     # E_G_CG_ded: 1年あたりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
     E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
-                      spec['H_HS'], spec['A_MR'], spec['A_OR'], Q, eta_H, eta_C,
-                      spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
-                      spec['underfloor_insulation'])
+            = calc_E_W(E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
+                spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
+                spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
     
     f_prim = section2_1.get_f_prim()
 
@@ -504,9 +517,8 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 def calc_E_W(
     E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
-    spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG, L_HWH, H_HS=None,
-    A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
-    r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
+    spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG,
+    A_MR=None, A_OR=None):
     """1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 
     Args:
@@ -554,22 +566,6 @@ def calc_E_W(
         return np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
     else:
-
-        # その他または設置しない場合
-        spec_HW = section7_1.get_virtual_hotwater(region, spec_HW)
-
-        # 温水暖房負荷の計算
-        if H_HS is not None:
-            import pyhees.section4_1 as H
-
-            # 暖房方式及び運転方法の区分
-            spec_HS = H.get_virtual_heatsource(region, H_HS)
-
-            L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
-                                            mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
-        else:
-            spec_HS = None
-            L_T_H_d_t_i = None
 
         # 1時間当たりの電力需要 (28)
         E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
