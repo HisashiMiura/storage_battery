@@ -682,7 +682,7 @@ if __name__ == '__main__':
         }
     }
 
-#    calc_total_energy(spec=spec)
+    calc_total_energy(spec=spec)
 
     spec = {
         "E_dash_dash_E_in_rtd_PVtoDB": 6.0,
