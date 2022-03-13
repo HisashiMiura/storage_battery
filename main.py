@@ -571,10 +571,12 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
         # 実質的な暖房機器の仕様を取得
         spec_MR, spec_OR = section4_1.get_virtual_heating_devices(region, H_MR, H_OR)
-        # 実質的な温水暖房機の仕様を取得
-        spec_HS = section4_1.get_virtual_heatsource(region, H_HS)
+
         # 暖房方式及び運転方法の区分
         mode_MR, mode_OR = calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
+
+        # 実質的な温水暖房機の仕様を取得
+        spec_HS = section4_1.get_virtual_heatsource(region, H_HS)
 
         # 暖房負荷の取得
         L_T_H_d_t_i, L_dash_H_R_d_t_i = calc_heating_load(
@@ -621,19 +623,17 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
             import pyhees.section4_1 as H
 
             # 暖房方式及び運転方法の区分
-            mode_MR, mode_OR = H.calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
             spec_HS = H.get_virtual_heatsource(region, H_HS)
 
             L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
                                             mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
         else:
-            mode_MR, mode_OR = None, None
+            spec_HS = None
             L_T_H_d_t_i = None
 
         # 1時間当たりのコージェネレーション設備の一次エネルギー消費量
         E_G_CG_d_t, E_E_CG_gen_d_t, _, E_E_TU_aux_d_t, _, E_G_CG_ded, e_BB_ave, Q_CG_h = \
-            calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG,
-            H_MR, H_OR, H_HS, A_MR, A_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, underfloor_insulation)
+            calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, A_MR, A_OR)
 
         # 1時間当たりのコージェネレーション設備の灯油消費量
         E_K_CG_d_t = np.zeros(365 * 24)
@@ -645,9 +645,7 @@ def calc_E_W(n_p, heating_flag_d, A_A, region, sol_region, HW, SHC, CG, L_HWH, H
 
 
 # 1日当たりのコージェネレーション設備の一次エネルギー消費量
-def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG,
-    H_MR=None, H_OR=None, H_HS=None, A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
-    r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
+def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_t, heating_flag_d, L_T_H_d_t_i, n_p, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, A_A, region, sol_region, HW, SHC, CG, A_MR=None, A_OR=None):
     """1時間当たりのコージェネレーション設備の一次エネルギー消費量
 
     Args:
@@ -666,22 +664,10 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
         HW(dict): 給湯機の仕様
         SHC(dict): 集熱式太陽熱利用設備の仕様
         CG(dict): コージェネレーションの機器
-        H_MR(dict, optional, optional): 暖房機器の仕様, defaults to None
-        H_OR(dict, optional, optional): 暖房機器の仕様, defaults to None
-        H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
         V(dict, optional, optional): 換気設備仕様辞書, defaults to None
         L(dict, optional, optional): 照明設備仕様辞書, defaults to None
         A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
         A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
-        Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
-        mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
-        mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
-        NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
-        NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
-        TS(bool, optional, optional): 蓄熱, defaults to None
-        r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
-        HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
-        underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
 
     Returns:
       tuple: 1時間当たりのコージェネレーション設備の一次エネルギー消費量
@@ -746,21 +732,6 @@ def calc_E_CG_d_t(spec_HW, E_E_AP_d_t, E_E_L_d_t, E_E_V_d_t, E_E_C_d_t, E_E_H_d_
         L_dashdash_b2_d_t = hotwater_load['L_dashdash_b2_d_t']
         L_dashdash_ba1_d_t = hotwater_load['L_dashdash_ba1_d_t']
         L_dashdash_ba2_d_t = hotwater_load['L_dashdash_ba2_d_t']
-
-    # 温水暖房負荷の計算
-    if H_HS is not None:
-        import pyhees.section4_1 as H
-
-        # 暖房方式及び運転方法の区分
-        mode_MR, mode_OR = H.calc_heating_mode(region=region, H_MR=spec_MR, H_OR=spec_OR)
-        spec_HS = H.get_virtual_heatsource(region, H_HS)
-
-        L_T_H_d_t_i, _ = H.calc_L_H_d_t(region, sol_region, A_A, A_MR, A_OR, None, None, spec_MR, spec_OR, mode_MR,
-                                        mode_OR, Q, mu_H, mu_C, NV_MR, NV_OR, TS, r_A_ufvnt, HEX, SHC, underfloor_insulation)
-    else:
-        spec_HS = None
-        mode_MR, mode_OR = None, None
-        L_T_H_d_t_i = None
 
     # 1時間当たりの給湯設備の消費電力量 (s7-1 1)
     E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
