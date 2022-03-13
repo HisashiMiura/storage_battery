@@ -152,8 +152,21 @@ def calc_total_energy(spec: Dict):
         underfloor_insulation=spec['underfloor_insulation']
     )
     
-    # ---- 照明,換気,その他設備 ----
+    # 1時間当たりの給湯設備の消費電力量, kWh/h
+    # 給湯設備が無い場合・コージェネレーションの場合は0とする。
+    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
 
+    # 1時間当たりの給湯設備のガス消費量, MJ/h
+    # 引数に A_A が指定されているが使用されていないので、None をわたすようにした。
+    E_G_W_d_t = section7_1.calc_E_G_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
+
+    # 1時間当たりの給湯設備の灯油消費量, MJ/h
+    # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
+    E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
+
+    # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_W_d_t = section7_1.get_E_M_W_d_t()
+    
     # 1 年当たりの照明設備の設計一次エネルギー消費量
     E_L, E_E_L_d_t = calc_E_L(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
 
@@ -197,8 +210,8 @@ def calc_total_energy(spec: Dict):
     # E_G_CG_ded: 1年あたりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
-    E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
+    E_W, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
+            = calc_E_W(E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_M_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], L_HWH,
                       spec['H_HS'], spec['A_MR'], spec['A_OR'], Q, eta_H, eta_C,
                       spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
                       spec['underfloor_insulation'])
@@ -259,7 +272,7 @@ def calc_total_energy(spec: Dict):
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(E_G_H_d_t, E_G_C_d_t, E_G_W_d, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
+    E_G = calc_E_G(E_G_H_d_t, E_G_C_d_t, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
 
     # 1 年当たりの設計灯油消費量（MJ/年）
     E_K = calc_E_K(E_K_H_d_t, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
@@ -486,7 +499,7 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 def calc_E_W(
-    E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
+    E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_M_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
     spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG, L_HWH, H_HS=None,
     A_MR=None, A_OR=None, Q=None, mu_H=None, mu_C=None, NV_MR=None, NV_OR=None, TS=None,
     r_A_ufvnt=None, HEX=None, underfloor_insulation=None):
@@ -528,26 +541,12 @@ def calc_E_W(
 
     """
 
-    # 1時間当たりの給湯設備の消費電力量, kWh/h
-    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
-
-    # 1時間当たりの給湯設備のガス消費量, MJ/h
-    # 引数に A_A が指定されているが使用されていないので、None をわたすようにした。
-    E_G_W_d_t = section7_1.calc_E_G_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, A_A=None, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
-
-    # 1時間当たりの給湯設備の灯油消費量, MJ/h
-    # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
-    E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=region, sol_region=sol_region, HW=spec_HW, SHC=SHC)
-
-    # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_W_d_t = section7_1.get_E_M_W_d_t()
-    
     # 電気の量 1kWh を熱量に換算する係数
     f_prim = get_f_prim()
 
     if spec_HW is None:
         return 0.0, np.zeros(24 * 365), np.zeros(24 * 365), \
-               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
 
     elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
         E_W_d = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t  # (9)
@@ -556,11 +555,11 @@ def calc_E_W(
         E_W = np.sum(E_W_d)
 
         return E_W, np.zeros(24 * 365), np.zeros(24 * 365), \
-               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, np.zeros(24 * 365), np.zeros(365*24)
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
     else:
 
         # その他または設置しない場合
-        spec_HW = section7_1.get_virtual_hotwater(region, HW)
+        spec_HW = section7_1.get_virtual_hotwater(region, spec_HW)
 
         # 温水暖房負荷の計算
         if H_HS is not None:
@@ -574,9 +573,6 @@ def calc_E_W(
         else:
             spec_HS = None
             L_T_H_d_t_i = None
-
-        # 1時間当たりの給湯設備の消費電力量 (s7-1 1)
-        # E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p, L_T_H_d_t_i, heating_flag_d, region, sol_region, HW, SHC)
 
         # 1時間当たりの電力需要 (28)
         E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
@@ -604,7 +600,7 @@ def calc_E_W(
         # (8b)
         E_CG = np.sum(E_G_CG_d_t)
 
-        return E_CG, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_E_W_d_t, E_G_W_d_t, E_K_W_d_t, E_G_CG_d_t, E_K_CG_d_t
+        return E_CG, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t
 
 
 def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function):
