@@ -201,6 +201,9 @@ def calc_total_energy(spec: Dict):
 
     #endregion
 
+    # 1時間当たりの電力需要 (28)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
     # E_E_TU_aux_d_t: 1時間当たりのタンクユニットの補機消費電力量 (kWh/h)
@@ -208,8 +211,7 @@ def calc_total_energy(spec: Dict):
     # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
     # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
     E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
-            = calc_E_W(E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
-                spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
+            = calc_E_W(E_E_dmd_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
                 spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
     
     f_prim = section2_1.get_f_prim()
@@ -242,9 +244,6 @@ def calc_total_energy(spec: Dict):
         E_E_PV_d_t = section9_1.calc_E_E_PV_d_t(spec['PV'], solrad)
     else:
         E_E_PV_d_t = np.zeros(24 * 365)
-
-    # 1時間当たりの電力需要, KWh/h
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
 
     # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
     # コージェネレーション設備による発電量と電力需要を比較する。
@@ -505,7 +504,7 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
 
 # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
 def calc_E_W(
-    E_E_W_d_t, E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_AP_d_t,
+    E_E_dmd_d_t,
     spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG,
     A_MR=None, A_OR=None):
     """1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
@@ -555,9 +554,6 @@ def calc_E_W(
         return np.zeros(24 * 365), np.zeros(24 * 365), \
                np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
     else:
-
-        # 1時間当たりの電力需要 (28)
-        E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
 
         # ふろ機能の修正
         if spec_HW['hw_type'] is not None:
