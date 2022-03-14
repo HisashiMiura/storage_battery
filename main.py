@@ -26,7 +26,7 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
+    n_p, f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
 
     # 温水暖房負荷の計算
     L_HWH = section2_2.calc_L_HWH(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['HEX'], spec['H_HS'], spec['H_MR'],
@@ -41,11 +41,6 @@ def calc_total_energy(spec: Dict):
     # 設置する場合は HW と spec_HW は同じ。
     # spec_HW は HW の DeepCopy
     spec_HW = section7_1_b.get_virtual_hotwater(spec['region'], spec['HW'])
-
-    # 仮想居住人数
-    n_p = section2_2.get_n_p(A_A=spec['A_A'])
-    
-    f_prim = section2_1.get_f_prim()
 
     # 1時間当たりの給湯設備の消費電力量, kWh/h
     # 給湯設備が無い場合・コージェネレーションの場合は0とする。
@@ -107,8 +102,6 @@ def calc_total_energy(spec: Dict):
             = calc_E_W(E_E_dmd_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
                 spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
     
-    f_prim = section2_1.get_f_prim()
-
     E_W_d_t = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t + E_G_CG_d_t + E_K_CG_d_t
 
     # 1 年当たりの照明設備の設計一次エネルギー消費量
