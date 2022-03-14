@@ -26,7 +26,7 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    f_prim, Q, mu_H, mu_C, A_env, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, L_CS_d_t, L_CL_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_UT_H_d_t, e = energy_calc.run(spec=spec)
+    f_prim, Q, mu_H, mu_C, A_env, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, L_CS_d_t, L_CL_d_t, e = energy_calc.run(spec=spec)
 
     # ---- 冷房設備 ----
 
@@ -116,7 +116,7 @@ def calc_total_energy(spec: Dict):
     #endregion
 
     # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
 
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -183,18 +183,18 @@ def calc_total_energy(spec: Dict):
     # ---- 二次エネの計算 ----
 
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = E_E_H_d_t + E_E_C_d_t + E_E_V_d_t + E_E_L_d_t + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + E_E_C_d_t + E_E_V_d_t + E_E_L_d_t + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(E_E_H_d_t, E_E_C_d_t, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, E_E_C_d_t, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(E_G_H_d_t, E_G_C_d_t, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
+    E_G = calc_E_G(e.E_G_Hs, E_G_C_d_t, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
 
     # 1 年当たりの設計灯油消費量（MJ/年）
-    E_K = calc_E_K(E_K_H_d_t, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
+    E_K = calc_E_K(e.E_K_Hs, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
