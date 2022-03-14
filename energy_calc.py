@@ -16,6 +16,9 @@ def run(spec: Dict):
     # 電気の量 1kWh を熱量に換算する係数, kJ/kWh
     f_prim = section2_1.get_f_prim()
 
+    # 仮想居住人数
+    n_p = section2_2.get_n_p(A_A=spec['A_A'])
+
     # 熱損失係数, W/(m2K)
     # 暖房期の日射取得係数, (W/m2)/(W/m2)
     # 冷房期の日射取得係数, (W/m2)/(W/m2)
@@ -59,7 +62,7 @@ def run(spec: Dict):
         heating_flag_d, L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
 
     # 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
-    E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t =get_E_C_d_t(
+    E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t =get_E_C_d_t(
         spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
         A_env, mu_H, mu_C, Q,
         spec['C_A'], spec['C_MR'], spec['C_OR'],
@@ -79,7 +82,7 @@ def run(spec: Dict):
     e.E_M_Cs = E_M_C_d_t
     e.E_UT_Cs = E_UT_C_d_t
 
-    return f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
+    return n_p, f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
 
 
 def get_envelope(dict_env: Dict):
@@ -189,8 +192,6 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
       ndarray: 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
 
     """
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = section2_1.get_f_prim()
 
     E_E_C_d_t = section2_2.calc_E_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t)
     E_G_C_d_t = section2_2.calc_E_G_C_d_t()
@@ -198,7 +199,5 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
     E_M_C_d_t = section2_2.calc_E_M_C_d_t()
     E_UT_C_d_t = section2_2.calc_E_UT_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t, mode_C)
 
-    E_C_d_t = E_E_C_d_t * f_prim / 1000 + E_G_C_d_t + E_K_C_d_t + E_M_C_d_t + E_UT_C_d_t  # (5)
-
-    return E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t
+    return E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t
 
