@@ -5,18 +5,12 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
 import pandas as pd
 
 from pyhees.section2_1 import calc_E_T
-from pyhees import section2_1, section2_2, section3_1, section3_2, section10
-from pyhees.section2_1_b import get_f_prim
-from pyhees.section4_1 import calc_heating_load, calc_heating_mode, get_virtual_heating_devices, get_virtual_heatsource, \
-    get_E_E_H_d_t, get_E_G_H_d_t, calc_E_K_H_d_t, calc_E_M_H_d_t, calc_E_UT_H_d_t
-from pyhees.section9_1 import calc_E_E_PV_d_t
-from simplejson import load
+from pyhees import section2_1, section2_2, section10
 
-import pvbatt2
 import pvbatt
 from pyhees import section11_2
 from pyhees import section9_1
-from pyhees import section4_1, section5, section6, section7_1, section7_1_b, section8
+from pyhees import section7_1, section7_1_b, section8
 
 import energy_calc
 
@@ -32,35 +26,7 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    Q, mu_H, mu_C, A_env = energy_calc.run(spec=spec)
-
-    # ---- 暖房設備 ----
-
-    # 1 時間当たりの暖房設備の設計一次エネルギー消費量
-
-    # 実質的な暖房機器の仕様を取得
-    spec_MR, spec_OR = section2_2.get_virtual_heating_devices(spec['region'], spec['H_MR'], spec['H_OR'])
-
-    # 暖房方式及び運転方法の区分
-    mode_MR, mode_OR = section2_2.calc_heating_mode(region=spec['region'], H_MR=spec_MR, H_OR=spec_OR)
-
-    # ---- 暖房負荷 ----
-
-    # 暖房負荷の取得
-    L_T_H_d_t_i, L_dash_H_R_d_t_i = section2_2.calc_heating_load(
-        spec['region'], spec['sol_region'],
-        spec['A_A'], spec['A_MR'], spec['A_OR'],
-        Q, mu_H, mu_C, spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
-        spec['underfloor_insulation'], spec['mode_H'], spec['mode_C'],
-        spec_MR, spec_OR, mode_MR, mode_OR, spec['SHC'])
-
-    # ---- 冷房負荷 ----
-
-    # 冷房負荷の取得
-    L_CS_d_t, L_CL_d_t = \
-        section2_2.calc_cooling_load(spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'], Q, mu_H, mu_C,
-                          spec['NV_MR'], spec['NV_OR'], spec['r_A_ufvnt'], spec['underfloor_insulation'],
-                          spec['mode_C'], spec['mode_H'], mode_MR, mode_OR, spec['TS'], spec['HEX'])
+    f_prim, Q, mu_H, mu_C, A_env, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, L_CS_d_t, L_CL_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_UT_H_d_t, e = energy_calc.run(spec=spec)
 
     # ---- 冷房設備 ----
 
@@ -71,37 +37,15 @@ def calc_total_energy(spec: Dict):
                   spec['C_A'], spec['C_MR'], spec['C_OR'],
                   L_T_H_d_t_i, L_CS_d_t, L_CL_d_t, spec['mode_C'])
 
-    # 1 年当たりの冷房設備の設計一次エネルギー消費量
+    # 年間の冷房設備の設計一次エネルギー消費量, MJ/year
     E_C = np.sum(E_C_d_t)
-
-    # ---- 暖房設備 ----
-
-    # 1 時間当たりの暖房設備の設計一次エネルギー消費量
-
-    # 実質的な温水暖房機の仕様を取得
-    spec_HS = section2_2.get_virtual_heatsource(spec['region'], spec['H_HS'])
-
-    # 暖房日の計算
-    if spec['SHC'] is not None and spec['SHC']['type'] == '空気集熱式':
-        from pyhees.section3_1_heatingday import get_heating_flag_d
-
-        heating_flag_d = get_heating_flag_d(L_dash_H_R_d_t_i)
-    else:
-        heating_flag_d = None
-
-    E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t = get_E_H_d_t(spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
-                  A_env, mu_H, mu_C, Q,
-                  spec['mode_H'],
-                  spec['H_A'], spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, spec['CG'], spec['SHC'],
-                  heating_flag_d, L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
     
-    E_H = np.sum(E_H_d_t)
+    # 年間の暖房設備の設計一次エネルギー消費量, MJ/year
+    E_H = e.get_E_H()
 
     # 1 年当たりの未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/年
-    E_UT_H_raw = sum(E_UT_H_d_t)  # (28)
-
     # 小数点以下一位未満の端数があるときは、これを四捨五入する。, MJ/年
-    E_UT_H = Decimal(E_UT_H_raw).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+    E_UT_H = Decimal(e.get_E_UT_H()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
     UPL = E_UT_H
 
@@ -121,27 +65,6 @@ def calc_total_energy(spec: Dict):
 
     # 仮想居住人数
     n_p = section2_2.get_n_p(A_A=spec['A_A'])
-
-    # 暖房日の計算
-    heating_flag_d = section2_2.calc_heating_flag_d(
-        A_A=spec['A_A'],
-        A_MR=spec['A_MR'],
-        A_OR=spec['A_OR'],
-        HEX=spec['HEX'],
-        H_MR=spec['H_MR'],
-        H_OR=spec['H_OR'],
-        Q=Q,
-        SHC=spec['SHC'],
-        TS=spec['TS'],
-        mu_H=mu_H,
-        mu_C=mu_C,
-        NV_MR=spec['NV_MR'],
-        NV_OR=spec['NV_OR'],
-        r_A_ufvnt=spec['r_A_ufvnt'],
-        region=spec['region'],
-        sol_region=spec['sol_region'],
-        underfloor_insulation=spec['underfloor_insulation']
-    )
     
     f_prim = section2_1.get_f_prim()
 
@@ -389,66 +312,6 @@ def calc_E_K(E_K_H_d_t, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t, E_K_AP_d_t, E_K_CC_d_t
     E_K = Decimal(E_K_raw).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
     return E_K
-
-
-# 1 時間当たりの暖房設備の設計一次エネルギー消費量
-def get_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, mode_H, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, CG, SHC,
-                heating_flag_d, L_T_H_d_t_i, L_CS_d_t_i, L_CL_d_t_i):
-    """1 時間当たりの暖房設備の設計一次エネルギー消費量
-
-    Args:
-      region(int): 省エネルギー地域区分
-      sol_region(int): 年間の日射地域区分(1-5)
-      A_A(float): 床面積の合計 (m2)
-      A_MR(float): 主たる居室の床面積 (m2)
-      A_OR(float): その他の居室の床面積 (m2)
-      mode_H(str): 暖房方式
-      H_A(dict): 暖房方式
-      spec_MR(dict): 暖房機器の仕様
-      spec_OR(dict): 暖房機器の仕様
-      spec_HS(dict): 温水暖房機の仕様
-      mode_MR(str): 主たる居室の運転方法 (連続運転|間歇運転)
-      mode_OR(str): その他の居室の運転方法 (連続運転|間歇運転)
-      CG(dict): コージェネレーションの機器
-      SHC(dict): 集熱式太陽熱利用設備の仕様
-      heating_flag_d(ndarray): 暖房日
-      L_H_A_d_t(ndarray): 暖房負荷
-      L_T_H_d_t_i(ndarray): 暖房区画i=1-5それぞれの暖房負荷
-      L_CS_d_t_i(ndarray): 暖冷房区画iの 1 時間当たりの冷房顕熱負荷
-      L_CL_d_t_i(ndarray): 暖冷房区画iの 1 時間当たりの冷房潜熱負荷
-      A_env: param mu_H:
-      mu_C: param Q:
-      mu_H: param Q:
-      Q: 
-
-    Returns:
-      ndarray: 1 時間当たりの暖房設備の設計一次エネルギー消費量
-
-    """
-
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = section2_1.get_f_prim()
-
-    # 暖房設備の消費電力量（kWh/h）(6a)
-    E_E_H_d_t = get_E_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, H_A, spec_MR, spec_OR, spec_HS,
-                                mode_MR, mode_OR, CG, SHC, heating_flag_d, L_T_H_d_t_i, L_CS_d_t_i, L_CL_d_t_i)
-
-    # 暖房設備のガス消費量（MJ/h）(6b)
-    E_G_H_d_t = get_E_G_H_d_t(region, A_A, A_MR, A_OR, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, CG, L_T_H_d_t_i)
-
-    # 暖房設備の灯油消費量（MJ/h）(6c)
-    E_K_H_d_t = calc_E_K_H_d_t(region, A_A, A_MR, A_OR, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, CG, L_T_H_d_t_i)
-
-    # 暖房設備のその他の燃料による一次エネルギー消費量（MJ/h）(6d)
-    E_M_H_d_t = calc_E_M_H_d_t(region, A_A, A_MR, A_OR, H_A, spec_MR, spec_OR, spec_HS, L_T_H_d_t_i)
-
-    # 暖房設備の未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/h
-    E_UT_H_d_t = calc_E_UT_H_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, mode_H, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR,
-                                    CG, L_T_H_d_t_i, L_CS_d_t_i, L_CL_d_t_i)
-
-    E_H_d_t = E_E_H_d_t * f_prim / 1000 + E_G_H_d_t + E_K_H_d_t + E_M_H_d_t + E_UT_H_d_t  # (3)
-
-    return E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t
 
 
 def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t, mode_C):
