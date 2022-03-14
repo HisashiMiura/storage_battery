@@ -26,28 +26,7 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    f_prim, Q, mu_H, mu_C, A_env, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, L_CS_d_t, L_CL_d_t, e = energy_calc.run(spec=spec)
-
-    # ---- 冷房設備 ----
-
-    # 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
-    E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t =get_E_C_d_t(
-        spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
-                  A_env, mu_H, mu_C, Q,
-                  spec['C_A'], spec['C_MR'], spec['C_OR'],
-                  L_T_H_d_t_i, L_CS_d_t, L_CL_d_t, spec['mode_C'])
-
-    # 年間の冷房設備の設計一次エネルギー消費量, MJ/year
-    E_C = np.sum(E_C_d_t)
-    
-    # 年間の暖房設備の設計一次エネルギー消費量, MJ/year
-    E_H = e.get_E_H()
-
-    # 1 年当たりの未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/年
-    # 小数点以下一位未満の端数があるときは、これを四捨五入する。, MJ/年
-    E_UT_H = Decimal(e.get_E_UT_H()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-    UPL = E_UT_H
+    f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
 
     # 温水暖房負荷の計算
     L_HWH = section2_2.calc_L_HWH(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['HEX'], spec['H_HS'], spec['H_MR'],
@@ -116,7 +95,7 @@ def calc_total_energy(spec: Dict):
     #endregion
 
     # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
 
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -182,19 +161,32 @@ def calc_total_energy(spec: Dict):
 
     # ---- 二次エネの計算 ----
 
+    # 年間の暖房設備の設計一次エネルギー消費量, MJ/year
+    E_H = e.get_E_H()
+
+    # 年間の冷房設備の設計一次エネルギー消費量, MJ/year
+    E_C = e.get_E_C()
+    
+    # 1 年当たりの未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/年
+    # 小数点以下一位未満の端数があるときは、これを四捨五入する。, MJ/年
+    E_UT_H = Decimal(e.get_E_UT_H()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+    E_UT_C = Decimal(e.get_E_UT_C()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+
+    UPL = E_UT_H + E_UT_C
+
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + E_E_C_d_t + E_E_V_d_t + E_E_L_d_t + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + e.E_E_Cs + E_E_V_d_t + E_E_L_d_t + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, E_E_C_d_t, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(e.E_G_Hs, E_G_C_d_t, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
+    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
 
     # 1 年当たりの設計灯油消費量（MJ/年）
-    E_K = calc_E_K(e.E_K_Hs, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
+    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 

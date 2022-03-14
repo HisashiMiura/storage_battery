@@ -1,5 +1,7 @@
 from typing import Dict
+import numpy as np
 
+from c_energy import Energy
 from pyhees import section2_1, section2_2
 from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
@@ -11,6 +13,7 @@ def run(spec: Dict):
         spec (Dict): 仕様（入力値）
     """
 
+    # 電気の量 1kWh を熱量に換算する係数, kJ/kWh
     f_prim = section2_1.get_f_prim()
 
     # 熱損失係数, W/(m2K)
@@ -48,13 +51,35 @@ def run(spec: Dict):
                           spec['NV_MR'], spec['NV_OR'], spec['r_A_ufvnt'], spec['underfloor_insulation'],
                           spec['mode_C'], spec['mode_H'], mode_MR, mode_OR, spec['TS'], spec['HEX'])
 
-    E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t = get_E_H_d_t(spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
-                  A_env, mu_H, mu_C, Q,
-                  spec['mode_H'],
-                  spec['H_A'], spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, spec['CG'], spec['SHC'],
-                  heating_flag_d, L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
+    E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t = get_E_H_d_t(
+        spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
+        A_env, mu_H, mu_C, Q,
+        spec['mode_H'],
+        spec['H_A'], spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, spec['CG'], spec['SHC'],
+        heating_flag_d, L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
 
-    return f_prim, Q, mu_H, mu_C, A_env, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, L_CS_d_t, L_CL_d_t, E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t
+    # 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
+    E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t =get_E_C_d_t(
+        spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
+        A_env, mu_H, mu_C, Q,
+        spec['C_A'], spec['C_MR'], spec['C_OR'],
+        L_T_H_d_t_i, L_CS_d_t, L_CL_d_t, spec['mode_C'])
+
+    e = Energy(f_prim=section2_1.get_f_prim())
+
+    e.E_E_Hs = E_E_H_d_t
+    e.E_G_Hs = E_G_H_d_t
+    e.E_K_Hs = E_K_H_d_t
+    e.E_M_Hs = E_M_H_d_t
+    e.E_UT_Hs = E_UT_H_d_t
+
+    e.E_E_Cs = E_E_C_d_t
+    e.E_G_Cs = E_G_C_d_t
+    e.E_K_Cs = E_K_C_d_t
+    e.E_M_Cs = E_M_C_d_t
+    e.E_UT_Cs = E_UT_C_d_t
+
+    return f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
 
 
 def get_envelope(dict_env: Dict):
@@ -116,9 +141,6 @@ def get_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, mode_
 
     """
 
-    # 電気の量 1kWh を熱量に換算する係数
-    f_prim = section2_1.get_f_prim()
-
     # 暖房設備の消費電力量（kWh/h）(6a)
     E_E_H_d_t = section4_1.get_E_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, H_A, spec_MR, spec_OR, spec_HS,
                                 mode_MR, mode_OR, CG, SHC, heating_flag_d, L_T_H_d_t_i, L_CS_d_t_i, L_CL_d_t_i)
@@ -136,7 +158,47 @@ def get_E_H_d_t(region, sol_region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, mode_
     E_UT_H_d_t = section4_1.calc_E_UT_H_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, mode_H, H_A, spec_MR, spec_OR, spec_HS, mode_MR, mode_OR,
                                     CG, L_T_H_d_t_i, L_CS_d_t_i, L_CL_d_t_i)
 
-    E_H_d_t = E_E_H_d_t * f_prim / 1000 + E_G_H_d_t + E_K_H_d_t + E_M_H_d_t + E_UT_H_d_t  # (3)
+    return E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t
 
-    return E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t
+
+def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t, mode_C):
+    """1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
+
+    Args:
+      region(int): 省エネルギー地域区分
+      A_A(float): 床面積の合計 (m2)
+      A_MR(float): 主たる居室の床面積 (m2)
+      A_OR(float): その他の居室の床面積 (m2)
+      C_A(dict): 冷房方式
+      C_MR(dict): 主たる居室の冷房機器
+      C_OR(dict): その他の居室の冷房機器
+      L_CS_A_d_t(ndarray): 冷房負荷
+      L_CL_A_d_t(ndarray): 冷房負荷
+      L_CS_d_t_i(ndarray): 暖冷房区画iの 1 時間当たりの冷房顕熱負荷
+      L_CL_d_t_i(ndarray): 暖冷房区画iの 1 時間当たりの冷房潜熱負荷
+      A_env: param mu_H:
+      mu_C: param Q:
+      L_H_d_t: param L_CS_d_t:
+      L_CL_d_t: param mode_C:
+      mu_H: param Q:
+      L_CS_d_t: param mode_C:
+      Q: 
+      mode_C: 
+
+    Returns:
+      ndarray: 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
+
+    """
+    # 電気の量 1kWh を熱量に換算する係数
+    f_prim = section2_1.get_f_prim()
+
+    E_E_C_d_t = section2_2.calc_E_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t)
+    E_G_C_d_t = section2_2.calc_E_G_C_d_t()
+    E_K_C_d_t = section2_2.calc_E_K_C_d_t()
+    E_M_C_d_t = section2_2.calc_E_M_C_d_t()
+    E_UT_C_d_t = section2_2.calc_E_UT_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t, mode_C)
+
+    E_C_d_t = E_E_C_d_t * f_prim / 1000 + E_G_C_d_t + E_K_C_d_t + E_M_C_d_t + E_UT_C_d_t  # (5)
+
+    return E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t
 
