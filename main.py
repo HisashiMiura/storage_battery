@@ -18,6 +18,8 @@ from pyhees import section11_2
 from pyhees import section9_1
 from pyhees import section4_1, section5, section6, section7_1, section7_1_b, section8
 
+import energy_calc
+
 def calc_total_energy(spec: Dict):
 
     results = calc_E_T(spec)
@@ -30,18 +32,7 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    # ---- 外皮の計算 ----
-
-    # 外皮の断熱性能の計算
-    if spec['ENV'] is not None:
-        U_A, _, _, _, Q_dash, eta_H, eta_C, _ = section3_2.calc_insulation_performance(**spec['ENV'])
-        # 熱損失係数
-        Q = section3_1.get_Q(Q_dash)
-        A_env = spec['ENV'].get('A_env')
-    else:
-        Q = None
-        eta_H, eta_C = None, None
-        A_env = None
+    Q, mu_H, mu_C, A_env = energy_calc.run(spec=spec)
 
     # ---- 暖房設備 ----
 
@@ -59,7 +50,7 @@ def calc_total_energy(spec: Dict):
     L_T_H_d_t_i, L_dash_H_R_d_t_i = section2_2.calc_heating_load(
         spec['region'], spec['sol_region'],
         spec['A_A'], spec['A_MR'], spec['A_OR'],
-        Q, eta_H, eta_C, spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
+        Q, mu_H, mu_C, spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
         spec['underfloor_insulation'], spec['mode_H'], spec['mode_C'],
         spec_MR, spec_OR, mode_MR, mode_OR, spec['SHC'])
 
@@ -67,7 +58,7 @@ def calc_total_energy(spec: Dict):
 
     # 冷房負荷の取得
     L_CS_d_t, L_CL_d_t = \
-        section2_2.calc_cooling_load(spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'], Q, eta_H, eta_C,
+        section2_2.calc_cooling_load(spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'], Q, mu_H, mu_C,
                           spec['NV_MR'], spec['NV_OR'], spec['r_A_ufvnt'], spec['underfloor_insulation'],
                           spec['mode_C'], spec['mode_H'], mode_MR, mode_OR, spec['TS'], spec['HEX'])
 
@@ -76,7 +67,7 @@ def calc_total_energy(spec: Dict):
     # 1 時間当たりの冷房設備の設計一次エネルギー消費量 (4)
     E_C_d_t, E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t =get_E_C_d_t(
         spec['region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
-                  A_env, eta_H, eta_C, Q,
+                  A_env, mu_H, mu_C, Q,
                   spec['C_A'], spec['C_MR'], spec['C_OR'],
                   L_T_H_d_t_i, L_CS_d_t, L_CL_d_t, spec['mode_C'])
 
@@ -99,7 +90,7 @@ def calc_total_energy(spec: Dict):
         heating_flag_d = None
 
     E_H_d_t, E_E_H_d_t, E_G_H_d_t, E_K_H_d_t, E_M_H_d_t, E_UT_H_d_t = get_E_H_d_t(spec['region'], spec['sol_region'], spec['A_A'], spec['A_MR'], spec['A_OR'],
-                  A_env, eta_H, eta_C, Q,
+                  A_env, mu_H, mu_C, Q,
                   spec['mode_H'],
                   spec['H_A'], spec_MR, spec_OR, spec_HS, mode_MR, mode_OR, spec['CG'], spec['SHC'],
                   heating_flag_d, L_T_H_d_t_i, L_CS_d_t, L_CL_d_t)
@@ -116,7 +107,7 @@ def calc_total_energy(spec: Dict):
 
     # 温水暖房負荷の計算
     L_HWH = section2_2.calc_L_HWH(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['HEX'], spec['H_HS'], spec['H_MR'],
-                           spec['H_OR'], Q, spec['SHC'], spec['TS'], eta_H, eta_C, spec['NV_MR'], spec['NV_OR'],
+                           spec['H_OR'], Q, spec['SHC'], spec['TS'], mu_H, mu_C, spec['NV_MR'], spec['NV_OR'],
                            spec['r_A_ufvnt'], spec['region'], spec['sol_region'], spec['underfloor_insulation'],
                            spec['CG'])
 
@@ -142,8 +133,8 @@ def calc_total_energy(spec: Dict):
         Q=Q,
         SHC=spec['SHC'],
         TS=spec['TS'],
-        mu_H=eta_H,
-        mu_C=eta_C,
+        mu_H=mu_H,
+        mu_C=mu_C,
         NV_MR=spec['NV_MR'],
         NV_OR=spec['NV_OR'],
         r_A_ufvnt=spec['r_A_ufvnt'],
