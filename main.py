@@ -26,37 +26,8 @@ def calc_total_energy(spec: Dict):
         if spec['sol_region'] is not None:
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
-    n_p, f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
+    spec_HW, n_p, f_prim, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
 
-    # 温水暖房負荷の計算
-    L_HWH = section2_2.calc_L_HWH(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['HEX'], spec['H_HS'], spec['H_MR'],
-                           spec['H_OR'], Q, spec['SHC'], spec['TS'], mu_H, mu_C, spec['NV_MR'], spec['NV_OR'],
-                           spec['r_A_ufvnt'], spec['region'], spec['sol_region'], spec['underfloor_insulation'],
-                           spec['CG'])
-
-
-    # ---- 給湯/コージェネ設備 ----
-
-    # その他または設置しない場合、Dict HW にデフォルト設備を上書きしたものを取得する。
-    # 設置する場合は HW と spec_HW は同じ。
-    # spec_HW は HW の DeepCopy
-    spec_HW = section7_1_b.get_virtual_hotwater(spec['region'], spec['HW'])
-
-    # 1時間当たりの給湯設備の消費電力量, kWh/h
-    # 給湯設備が無い場合・コージェネレーションの場合は0とする。
-    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
-
-    # 1時間当たりの給湯設備のガス消費量, MJ/h
-    # 引数に A_A が指定されているが使用されていないので、None をわたすようにした。
-    E_G_W_d_t = section7_1.calc_E_G_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
-
-    # 1時間当たりの給湯設備の灯油消費量, MJ/h
-    # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
-    E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
-
-    # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_W_d_t = section7_1.get_E_M_W_d_t()
-    
     #region その他の一次エネルギー消費量
 
     # 1時間当たりの家電の消費電力量, kWh/h
@@ -86,7 +57,7 @@ def calc_total_energy(spec: Dict):
     #endregion
 
     # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, e.E_E_Vs, e.E_E_Ls, E_E_W_d_t, E_E_AP_d_t)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, e.E_E_Vs, e.E_E_Ls, e.E_E_Ws, E_E_AP_d_t)
 
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -98,9 +69,9 @@ def calc_total_energy(spec: Dict):
             = calc_E_W(E_E_dmd_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
                 spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
     
-    E_W_d_t = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t + E_G_CG_d_t + E_K_CG_d_t
+    E_W_d_t = E_G_CG_d_t + E_K_CG_d_t
 
-    E_W = np.sum(E_W_d_t)
+    E_W = e.get_E_W() + np.sum(E_W_d_t)
 
     if spec['CG'] is not None:
         has_CG = True
@@ -164,18 +135,18 @@ def calc_total_energy(spec: Dict):
     E_L = e.get_E_L()
 
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, E_E_W_d_t, e.E_E_Ls, e.E_E_Vs, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, E_G_W_d_t, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
+    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, e.E_G_Ws, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
 
     # 1 年当たりの設計灯油消費量（MJ/年）
-    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, E_K_W_d_t, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
+    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, e.E_K_Ws, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 

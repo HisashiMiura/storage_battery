@@ -5,6 +5,7 @@ from c_energy import Energy
 from pyhees import section2_1, section2_2
 from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
+from pyhees import section7_1, section7_1_b
 
 def run(spec: Dict):
     """エネルギー消費量を計算する。
@@ -72,6 +73,32 @@ def run(spec: Dict):
 
     E_E_L_d_t = section2_2.calc_E_E_L_d_t(n_p, spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
 
+    # 温水暖房負荷の計算
+    L_HWH = section2_2.calc_L_HWH(spec['A_A'], spec['A_MR'], spec['A_OR'], spec['HEX'], spec['H_HS'], spec['H_MR'],
+                           spec['H_OR'], Q, spec['SHC'], spec['TS'], mu_H, mu_C, spec['NV_MR'], spec['NV_OR'],
+                           spec['r_A_ufvnt'], spec['region'], spec['sol_region'], spec['underfloor_insulation'],
+                           spec['CG'])
+
+    # その他または設置しない場合、Dict HW にデフォルト設備を上書きしたものを取得する。
+    # 設置する場合は HW と spec_HW は同じ。
+    # spec_HW は HW の DeepCopy
+    spec_HW = section7_1_b.get_virtual_hotwater(spec['region'], spec['HW'])
+
+    # 1時間当たりの給湯設備の消費電力量, kWh/h
+    # 給湯設備が無い場合・コージェネレーションの場合は0とする。
+    E_E_W_d_t = section7_1.calc_E_E_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
+
+    # 1時間当たりの給湯設備のガス消費量, MJ/h
+    # 引数に A_A が指定されているが使用されていないので、None をわたすようにした。
+    E_G_W_d_t = section7_1.calc_E_G_W_d_t(n_p=n_p, L_HWH=L_HWH, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
+
+    # 1時間当たりの給湯設備の灯油消費量, MJ/h
+    # 引数として L_HWH, A_A が指定されているが使用されていないのでNoneをわたした。
+    E_K_W_d_t = section7_1.calc_E_K_W_d_t(n_p=n_p, L_HWH=None, heating_flag_d=heating_flag_d, A_A=None, region=spec['region'], sol_region=spec['sol_region'], HW=spec_HW, SHC=spec['SHC'])
+
+    # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_W_d_t = section7_1.get_E_M_W_d_t()
+    
     e = Energy(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
@@ -90,7 +117,12 @@ def run(spec: Dict):
 
     e.E_E_Ls = E_E_L_d_t
 
-    return n_p, f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
+    e.E_E_Ws = E_E_W_d_t
+    e.E_G_Ws = E_G_W_d_t
+    e.E_K_Ws = E_K_W_d_t
+    e.E_M_Ws = E_M_W_d_t
+
+    return spec_HW, n_p, f_prim, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
 
 
 def get_envelope(dict_env: Dict):

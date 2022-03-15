@@ -49,6 +49,19 @@ class Energy:
         # 照明設備の消費電力量 [8760], kWh/h
         self.E_E_Ls = np.zeros(8760)
 
+        # 給湯設備の消費電力量 [8760], kWh/h
+        self.E_E_Ws = np.zeros(8760)
+
+        # 給湯設備のガス消費量 [8760], MJ/h
+        self.E_G_Ws = np.zeros(8760)
+
+        # 給湯設備の灯油消費量 [8760], MJ/h
+        self.E_K_Ws = np.zeros(8760)
+
+        # 給湯設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        self.E_M_Ws = np.zeros(8760)
+
+
     def get_E_H(self):
         """年間の暖房一次エネルギー消費量を計算する。
 
@@ -107,5 +120,15 @@ class Energy:
 
         return np.sum(self.E_E_Ls) * self.f_prim / 1000
 
+    def get_E_W(self):
+        """年間の給湯一次エネルギー消費量を計算する。
+
+        Returns:
+            float: 年間の給湯一次エネルギー消費量, MJ/year
+        """
+
+        E_Ws = self.E_E_Ws * self.f_prim / 1000 + self.E_G_Ws + self.E_K_Ws + self.E_M_Ws
+
+        return np.sum(E_Ws)
 
 
