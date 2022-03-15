@@ -85,7 +85,11 @@ class Energy:
         # 1時間当たりの調理のその他の燃料による一次エネルギー消費量 [8760], MJ/h
         self.E_M_CCs = np.zeros(8760)
 
+        # 1時間当たりのコージェネレーションのガス消費量 [8760], MJ/h
+        self.E_G_CGs = np.zeros(8760)
 
+        # 1時間当たりのコージェネレーションの灯油消費量 [8760], MJ/h
+        self.E_K_CGs = np.zeros(8760)
 
 
     def get_E_H(self):
@@ -179,5 +183,15 @@ class Energy:
 
         return np.sum(E_CCs)
 
+    def get_E_CG(self):
+        """年間のコージェネレーションの一次エネルギー消費量を計算する。
+
+        Returns:
+            float: 年間のコージェネレーションの一次エネルギー消費量, MJ/year
+        """
+
+        E_CGs = self.E_G_CGs + self.E_K_CGs
+
+        return np.sum(E_CGs)
 
 

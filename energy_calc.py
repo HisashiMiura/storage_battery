@@ -6,6 +6,7 @@ from pyhees import section2_1, section2_2
 from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
 from pyhees import section7_1, section7_1_b
+from pyhees import section8
 from pyhees import section10
 
 def run(spec: Dict):
@@ -124,6 +125,20 @@ def run(spec: Dict):
     # 1時間当たりの調理のその他の燃料による一次エネルギー消費量, MJ/h
     E_M_CC_d_t = section10.get_E_M_CC_d_t()
 
+    # 1時間当たりの電力需要 (28)
+    # 本来であれば 調理の消費電力量も加算するべき。
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(E_E_H_d_t, E_E_C_d_t, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+
+    # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
+    # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
+    # E_E_TU_aux_d_t: 1時間当たりのタンクユニットの補機消費電力量 (kWh/h)
+    # E_G_CG_ded: 1年あたりのコージェネレーション設備のガス消費量のうちの売電に係る控除対象分 (MJ/yr)
+    # e_BB_ave: 給湯時のバックアップボイラーの年間平均効率 (-)
+    # Q_CG_h: 1年あたりのコージェネレーション設備による製造熱量のうちの自家消費算入分 (MJ/yr)
+    E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t \
+            = calc_E_W(E_E_dmd_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
+                spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
+
     e = Energy(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
@@ -157,7 +172,10 @@ def run(spec: Dict):
     e.E_K_CCs = E_K_CC_d_t
     e.E_M_CCs = E_M_CC_d_t
 
-    return spec_HW, n_p, f_prim, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
+    e.E_G_CGs = E_G_CG_d_t
+    e.E_K_CGs = E_K_CG_d_t
+    
+    return E_E_dmd_d_t, f_prim, e, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h
 
 
 def get_envelope(dict_env: Dict):
@@ -275,4 +293,139 @@ def get_E_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, 
     E_UT_C_d_t = section2_2.calc_E_UT_C_d_t(region, A_A, A_MR, A_OR, A_env, mu_H, mu_C, Q, C_A, C_MR, C_OR, L_H_d_t, L_CS_d_t, L_CL_d_t, mode_C)
 
     return E_E_C_d_t, E_G_C_d_t, E_K_C_d_t, E_M_C_d_t, E_UT_C_d_t
+
+
+# 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
+def calc_E_W(
+    E_E_dmd_d_t,
+    spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d, A_A, region, sol_region, spec_HW, SHC, CG,
+    A_MR=None, A_OR=None):
+    """1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
+
+    Args:
+        n_p: 仮想居住人数
+        heating_flag_d: 暖房日
+        A_A(float): 床面積の合計 (m2)
+        region(int): 省エネルギー地域区分
+        sol_region(int): 年間の日射地域区分(1-5)
+        HW(dict): 給湯機の仕様
+        SHC(dict): 集熱式太陽熱利用設備の仕様
+        CG(dict): コージェネレーションの機器
+        H_A(dict, optional, optional): 暖房方式, defaults to None
+        H_HS(dict, optional, optional): 温水暖房機の仕様, defaults to None
+        C_A(dict, optional, optional): 冷房方式, defaults to None
+        C_MR(dict, optional, optional): 主たる居室の冷房機器, defaults to None
+        C_OR(dict, optional, optional): その他の居室の冷房機器, defaults to None
+        V(dict, optional, optional): 換気設備仕様辞書, defaults to None
+        L(dict, optional, optional): 照明設備仕様辞書, defaults to None
+        A_MR(float, optional, optional): 主たる居室の床面積 (m2), defaults to None
+        A_OR(float, optional, optional): その他の居室の床面積 (m2), defaults to None
+        Q(float, optional, optional): 当該住戸の熱損失係数 (W/m2K), defaults to None
+        mu_H(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の暖房期の日射取得係数, defaults to None
+        mu_C(float, optional, optional): 断熱性能の区分݆における日射取得性能の区分݇の冷房期の日射取得係数, defaults to None
+        NV_MR(float, optional, optional): 主たる居室における通風の利用における相当換気回数, defaults to None
+        NV_OR(float, optional, optional): その他の居室における通風の利用における相当換気回数, defaults to None
+        TS(bool, optional, optional): 蓄熱, defaults to None
+        r_A_ufvnt(float, optional, optional): 床下換気, defaults to None
+        HEX(dict, optional, optional): 熱交換器型設備仕様辞書, defaults to None
+        underfloor_insulation(bool, optional, optional): 床下空間が断熱空間内である場合はTrue, defaults to None
+        mode_H(str, optional, optional): 暖房方式, defaults to None
+        mode_C(str, optional, optional): 冷房方式, defaults to None
+        A_env: Default value = None)
+
+    Returns:
+        tuple: 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
+
+    """
+
+    if spec_HW is None:
+        return np.zeros(24 * 365), np.zeros(24 * 365), \
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
+
+    elif spec_HW['hw_type'] != 'コージェネレーションを使用する':
+
+        return np.zeros(24 * 365), np.zeros(24 * 365), \
+               np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(24 * 365), np.zeros(365*24)
+    else:
+
+        # ふろ機能の修正
+        if spec_HW['hw_type'] is not None:
+            bath_function = section7_1.get_normalized_bath_function(spec_HW['hw_type'], spec_HW['bath_function'])
+        else:
+            bath_function = None
+
+        L_dashdash_k_d_t, L_dashdash_s_d_t, L_dashdash_w_d_t, L_dashdash_b1_d_t, L_dashdash_b2_d_t, L_dashdash_ba1_d_t, L_dashdash_ba2_d_t = calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function)
+
+        # 1日当たりのコージェネレーション設備の一次エネルギー消費量
+        E_G_CG_d_t, E_E_CG_gen_d_t, E_G_CG_ded, E_E_CG_self, Q_CG_h, E_E_TU_aux_d_t, e_BB_ave = \
+            section8.calc_E_G_CG_d_t(bath_function, CG, E_E_dmd_d_t,
+                            L_dashdash_k_d_t, L_dashdash_w_d_t, L_dashdash_s_d_t, L_dashdash_b1_d_t,
+                            L_dashdash_b2_d_t,
+                            L_dashdash_ba1_d_t, L_dashdash_ba2_d_t,
+                            spec_HS, spec_MR, spec_OR, A_A, A_MR, A_OR, region, mode_MR, mode_OR,
+                            L_T_H_d_t_i)
+
+        # 1時間当たりのコージェネレーション設備の灯油消費量
+        E_K_CG_d_t = np.zeros(365 * 24)
+
+        return E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h, E_G_CG_d_t, E_K_CG_d_t
+
+
+def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, bath_function):
+
+    if spec_HW['hw_type'] is not None:
+
+        # 給湯負荷の生成
+        args = {
+            'n_p': n_p,
+            'region': region,
+            'sol_region': sol_region,
+            'has_bath': spec_HW['has_bath'],
+            'bath_function': bath_function,
+            'pipe_diameter': spec_HW['pipe_diameter'],
+            'kitchen_watersaving_A': spec_HW['kitchen_watersaving_A'],
+            'kitchen_watersaving_C': spec_HW['kitchen_watersaving_C'],
+            'shower_watersaving_A': spec_HW['shower_watersaving_A'],
+            'shower_watersaving_B': spec_HW['shower_watersaving_B'],
+            'washbowl_watersaving_C': spec_HW['washbowl_watersaving_C'],
+            'bath_insulation': spec_HW['bath_insulation']
+        }
+        if SHC is not None:
+            if SHC['type'] == '液体集熱式':
+                args.update({
+                    'type': SHC['type'],
+                    'ls_type': SHC['ls_type'],
+                    'A_sp': SHC['A_sp'],
+                    'P_alpha_sp': SHC['P_alpha_sp'],
+                    'P_beta_sp': SHC['P_beta_sp'],
+                    'W_tnk_ss': SHC['W_tnk_ss']
+                })
+            elif SHC['type'] == '空気集熱式':
+                args.update({
+                    'type': SHC['type'],
+                    'hotwater_use': SHC['hotwater_use'],
+                    'heating_flag_d': heating_flag_d,
+                    'A_col': SHC['A_col'],
+                    'P_alpha': SHC['P_alpha'],
+                    'P_beta': SHC['P_beta'],
+                    'V_fan_P0': SHC['V_fan_P0'],
+                    'd0': SHC['d0'],
+                    'd1': SHC['d1'],
+                    'W_tnk_ass': SHC['W_tnk_ass']
+                })
+            else:
+                raise ValueError(SHC['type'])
+
+        hotwater_load = section7_1.calc_hotwater_load(**args)
+
+        L_dashdash_k_d_t = hotwater_load['L_dashdash_k_d_t']
+        L_dashdash_s_d_t = hotwater_load['L_dashdash_s_d_t']
+        L_dashdash_w_d_t = hotwater_load['L_dashdash_w_d_t']
+        L_dashdash_b1_d_t = hotwater_load['L_dashdash_b1_d_t']
+        L_dashdash_b2_d_t = hotwater_load['L_dashdash_b2_d_t']
+        L_dashdash_ba1_d_t = hotwater_load['L_dashdash_ba1_d_t']
+        L_dashdash_ba2_d_t = hotwater_load['L_dashdash_ba2_d_t']
+
+    return L_dashdash_k_d_t,L_dashdash_s_d_t,L_dashdash_w_d_t,L_dashdash_b1_d_t,L_dashdash_b2_d_t,L_dashdash_ba1_d_t,L_dashdash_ba2_d_t
+
 
