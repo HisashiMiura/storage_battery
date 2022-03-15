@@ -13,53 +13,79 @@ class Energy:
         # 電気の量 1kWh を熱量に換算する係数, kJ/kWh
         self.f_prim = f_prim
 
-        # 暖房設備の消費電力量 [8760], kWh/h
+        # 1時間当たりの暖房設備の消費電力量 [8760], kWh/h
         self.E_E_Hs = np.zeros(8760)
 
-        # 暖房設備のガス消費量 [8760], MJ/h
+        # 1時間当たりの暖房設備のガス消費量 [8760], MJ/h
         self.E_G_Hs = np.zeros(8760)
 
-        # 暖房設備の灯油消費量 [8760], MJ/h
+        # 1時間当たりの暖房設備の灯油消費量 [8760], MJ/h
         self.E_K_Hs = np.zeros(8760)
 
-        # 暖房設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        # 1時間当たりの暖房設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
         self.E_M_Hs = np.zeros(8760)
 
-        # 暖房設備の未処理暖房負荷の設計一次エネルギー消費量相当値 [8760], MJ/h
+        # 1時間当たりの暖房設備の未処理暖房負荷の設計一次エネルギー消費量相当値 [8760], MJ/h
         self.E_UT_Hs = np.zeros(8760)
 
-        # 冷房設備の消費電力量 [8760], kWh/h
+        # 1時間当たりの冷房設備の消費電力量 [8760], kWh/h
         self.E_E_Cs = np.zeros(8760)
 
-        # 冷房設備のガス消費量 [8760], MJ/h
+        # 1時間当たりの冷房設備のガス消費量 [8760], MJ/h
         self.E_G_Cs = np.zeros(8760)
 
-        # 冷房設備の灯油消費量 [8760], MJ/h
+        # 1時間当たりの冷房設備の灯油消費量 [8760], MJ/h
         self.E_K_Cs = np.zeros(8760)
 
-        # 冷房設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        # 1時間当たりの冷房設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
         self.E_M_Cs = np.zeros(8760)
 
-        # 冷房設備の未処理暖房負荷の設計一次エネルギー消費量相当値 [8760], MJ/h
+        # 1時間当たりの冷房設備の未処理暖房負荷の設計一次エネルギー消費量相当値 [8760], MJ/h
         self.E_UT_Cs = np.zeros(8760)
 
-        # 換気設備の消費電力量 [8760], kWh/h
+        # 1時間当たりの換気設備の消費電力量 [8760], kWh/h
         self.E_E_Vs = np.zeros(8760)
 
-        # 照明設備の消費電力量 [8760], kWh/h
+        # 1時間当たりの照明設備の消費電力量 [8760], kWh/h
         self.E_E_Ls = np.zeros(8760)
 
-        # 給湯設備の消費電力量 [8760], kWh/h
+        # 1時間当たりの給湯設備の消費電力量 [8760], kWh/h
         self.E_E_Ws = np.zeros(8760)
 
-        # 給湯設備のガス消費量 [8760], MJ/h
+        # 1時間当たりの給湯設備のガス消費量 [8760], MJ/h
         self.E_G_Ws = np.zeros(8760)
 
-        # 給湯設備の灯油消費量 [8760], MJ/h
+        # 1時間当たりの給湯設備の灯油消費量 [8760], MJ/h
         self.E_K_Ws = np.zeros(8760)
 
-        # 給湯設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量 [8760], MJ/h
         self.E_M_Ws = np.zeros(8760)
+
+        # 1時間当たりの家電の消費電力量 [8760], kWh/h
+        self.E_E_APs = np.zeros(8760)
+
+        # 1時間当たりの家電のガス消費量 [8760], MJ/h
+        self.E_G_APs = np.zeros(8760)
+
+        # 1時間当たりの家電の灯油消費量 [8760], MJ/h
+        self.E_K_APs = np.zeros(8760)
+
+        # 1時間当たりの家電のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        self.E_M_APs = np.zeros(8760)
+
+        # 1時間当たりの調理の消費電力量 [8760], kWh/h
+        self.E_E_CCs = np.zeros(8760)
+
+        # 1時間当たりの調理のガス消費量 [8760], MJ/h
+        self.E_G_CCs = np.zeros(8760)
+
+        # 1時間当たりの調理の灯油消費量 [8760], MJ/h
+        self.E_K_CCs = np.zeros(8760)
+
+        # 1時間当たりの調理のその他の燃料による一次エネルギー消費量 [8760], MJ/h
+        self.E_M_CCs = np.zeros(8760)
+
+
 
 
     def get_E_H(self):
@@ -130,5 +156,28 @@ class Energy:
         E_Ws = self.E_E_Ws * self.f_prim / 1000 + self.E_G_Ws + self.E_K_Ws + self.E_M_Ws
 
         return np.sum(E_Ws)
+
+    def get_E_AP(self):
+        """年間の家電一次エネルギー消費量を計算する。
+
+        Returns:
+            float: 年間の家電一次エネルギー消費量, MJ/year
+        """
+
+        E_APs = self.E_E_APs * self.f_prim / 1000 + self.E_G_APs + self.E_K_APs + self.E_M_APs
+
+        return np.sum(E_APs)
+
+    def get_E_CC(self):
+        """年間の調理一次エネルギー消費量を計算する。
+
+        Returns:
+            float: 年間の調理一次エネルギー消費量, MJ/year
+        """
+
+        E_CCs = self.E_E_CCs * self.f_prim / 1000 + self.E_G_CCs + self.E_K_CCs + self.E_M_CCs
+
+        return np.sum(E_CCs)
+
 
 

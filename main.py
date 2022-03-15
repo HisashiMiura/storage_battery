@@ -28,36 +28,8 @@ def calc_total_energy(spec: Dict):
 
     spec_HW, n_p, f_prim, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e = energy_calc.run(spec=spec)
 
-    #region その他の一次エネルギー消費量
-
-    # 1時間当たりの家電の消費電力量, kWh/h
-    E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
-
-    # 1時間当たりの家電のガス消費量, MJ/h
-    E_G_AP_d_t = section10.get_E_G_AP_d_t()
-
-    # 1時間当たりの家電の灯油消費量, MJ/h
-    E_K_AP_d_t = section10.get_E_K_AP_d_t()
-
-    # 1時間当たりの家電のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_AP_d_t = section10.get_E_M_AP_d_t()
-
-    # 1時間当たりの調理の消費電力量, kWh/h
-    E_E_CC_d_t = section10.get_E_E_CC_d_t()
-
-    # 1時間当たりの調理のガス消費量, MJ/h
-    E_G_CC_d_t = section10.calc_E_G_CC_d_t(n_p)
-
-    # 1時間当たりの調理の灯油消費量, MJ/h
-    E_K_CC_d_t = section10.get_E_K_CC_d_t()
-
-    # 1時間当たりの調理のその他の燃料による一次エネルギー消費量, MJ/h
-    E_M_CC_d_t = section10.get_E_M_CC_d_t()
-
-    #endregion
-
     # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, e.E_E_Vs, e.E_E_Ls, e.E_E_Ws, E_E_AP_d_t)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, e.E_E_Vs, e.E_E_Ls, e.E_E_Ws, e.E_E_APs)
 
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -135,26 +107,23 @@ def calc_total_energy(spec: Dict):
     E_L = e.get_E_L()
 
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + e.E_E_APs + e.E_E_CCs - E_E_PV_h_d_t - E_E_CG_h_d_t
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, e.E_E_APs, e.E_E_CCs, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, e.E_G_Ws, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, spec['A_A'])
+    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, e.E_G_Ws, E_G_CG_d_t, e.E_G_APs, e.E_G_CCs, spec['A_A'])
 
     # 1 年当たりの設計灯油消費量（MJ/年）
-    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, e.E_K_Ws, E_K_CG_d_t,  E_K_AP_d_t, E_K_CC_d_t)
+    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, e.E_K_Ws, E_K_CG_d_t, e.E_K_APs, e.E_K_CCs)
 
     E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
 
     # 1年当たりのその他の設計一次エネルギー消費量
-    E_M = np.sum(
-        E_E_AP_d_t * f_prim / 1000 + E_G_AP_d_t + E_K_AP_d_t + E_M_AP_d_t
-        + E_E_CC_d_t * f_prim / 1000 + E_G_CC_d_t + E_K_CC_d_t + E_M_CC_d_t
-    )
+    E_M = e.get_E_AP() + e.get_E_CC()
 
     # 1年当たりのコージェネレーション設備による売電量に係るガス消費量の控除量 (MJ/yr) (20)
     # この値は1時間ごとには計算できない。

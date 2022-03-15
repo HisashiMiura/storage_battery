@@ -6,6 +6,7 @@ from pyhees import section2_1, section2_2
 from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
 from pyhees import section7_1, section7_1_b
+from pyhees import section10
 
 def run(spec: Dict):
     """エネルギー消費量を計算する。
@@ -99,6 +100,30 @@ def run(spec: Dict):
     # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
     E_M_W_d_t = section7_1.get_E_M_W_d_t()
     
+    # 1時間当たりの家電の消費電力量, kWh/h
+    E_E_AP_d_t = section10.calc_E_E_AP_d_t(n_p)
+
+    # 1時間当たりの家電のガス消費量, MJ/h
+    E_G_AP_d_t = section10.get_E_G_AP_d_t()
+
+    # 1時間当たりの家電の灯油消費量, MJ/h
+    E_K_AP_d_t = section10.get_E_K_AP_d_t()
+
+    # 1時間当たりの家電のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_AP_d_t = section10.get_E_M_AP_d_t()
+
+    # 1時間当たりの調理の消費電力量, kWh/h
+    E_E_CC_d_t = section10.get_E_E_CC_d_t()
+
+    # 1時間当たりの調理のガス消費量, MJ/h
+    E_G_CC_d_t = section10.calc_E_G_CC_d_t(n_p)
+
+    # 1時間当たりの調理の灯油消費量, MJ/h
+    E_K_CC_d_t = section10.get_E_K_CC_d_t()
+
+    # 1時間当たりの調理のその他の燃料による一次エネルギー消費量, MJ/h
+    E_M_CC_d_t = section10.get_E_M_CC_d_t()
+
     e = Energy(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
@@ -121,6 +146,16 @@ def run(spec: Dict):
     e.E_G_Ws = E_G_W_d_t
     e.E_K_Ws = E_K_W_d_t
     e.E_M_Ws = E_M_W_d_t
+
+    e.E_E_APs = E_E_AP_d_t
+    e.E_G_APs = E_G_AP_d_t
+    e.E_K_APs = E_K_AP_d_t
+    e.E_M_APs = E_M_AP_d_t
+
+    e.E_E_CCs = E_E_CC_d_t
+    e.E_G_CCs = E_G_CC_d_t
+    e.E_K_CCs = E_K_CC_d_t
+    e.E_M_CCs = E_M_CC_d_t
 
     return spec_HW, n_p, f_prim, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
 
