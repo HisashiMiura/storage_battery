@@ -91,6 +91,18 @@ class Energy:
         # 1時間当たりのコージェネレーションの灯油消費量 [8760], MJ/h
         self.E_K_CGs = np.zeros(8760)
 
+        # 1時間当たりのコージェネレーション設備による発電量 [8760], kWh/h
+        self.E_E_CG_gens = np.zeros(8760)
+
+        # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 [8760], kWh/h
+        self.E_E_CG_hs = np.zeros(8760)
+
+        # 1時間当たりの太陽光発電設備による発電量 [8760], kWh/h
+        self.E_E_PVs = np.zeros(8760)
+
+        # 1時間当たりの太陽光発電設備による消費電力削減量（自家消費分） [8760, kWh/h
+        self.E_E_PV_hs = np.zeros(8760)
+
 
     def get_E_H(self):
         """年間の暖房一次エネルギー消費量を計算する。

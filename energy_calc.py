@@ -7,7 +7,9 @@ from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
 from pyhees import section7_1, section7_1_b
 from pyhees import section8
+from pyhees import section9_1
 from pyhees import section10
+from pyhees import section11_2
 
 def run(spec: Dict):
     """エネルギー消費量を計算する。
@@ -139,6 +141,58 @@ def run(spec: Dict):
             = calc_E_W(E_E_dmd_d_t, spec_MR, spec_OR, mode_MR, mode_OR, spec_HS, L_T_H_d_t_i, n_p, heating_flag_d,
                 spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
 
+    if spec['CG'] is not None:
+        has_CG = True
+        has_CG_reverse = spec['CG']["reverse"] if 'reverse' in spec['CG'] else False
+    else:
+        has_CG = False
+        has_CG_reverse = False
+
+    # 太陽光発電が設置されているか否か
+    if spec['PV'] is not None:
+        has_PV = True
+    else:
+        has_PV = False
+
+    # 日射量データの読み込み
+    solrad = None
+    if (spec['SHC'] is not None or spec['PV'] is not None) and 'sol_region' in spec:
+        if spec['sol_region'] is not None:
+            solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
+
+    # 1時間当たりの太陽光発電設備による発電量(s9-1 1), kWh/h
+    if has_PV:
+        E_E_PV_d_t = section9_1.calc_E_E_PV_d_t(spec['PV'], solrad)
+    else:
+        E_E_PV_d_t = np.zeros(24 * 365)
+
+    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
+    # コージェネレーション設備による発電量と電力需要を比較する。
+    # PV よりもコージェネレーション設備による発電量が優先的に自家消費分にまわされる。
+    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
+
+    # 1 時間当たりの太陽光発電設備による消費電力削減量（自家消費分） (17-1)(17-2), kWh/h
+    # コージェネレーション設備による発電量を考慮した残りの電力需要と比較して太陽光発電設備による自家消費分を決める。
+    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
+
+    # 1時間当たりのコージェネレーション設備による売電量(二次エネルギー) (kWh/h) (24-1)(24-2)
+    E_E_CG_sell_d_t = section2_2.get_E_E_CG_sell_d_t(E_E_CG_gen_d_t, E_E_CG_h_d_t, has_CG_reverse)
+
+    # 1年当たりのコージェネレーション設備による売電量（一次エネルギー換算値）(MJ/yr) (23)
+    E_CG_sell = np.sum(E_E_CG_sell_d_t) * f_prim / 1000
+
+    # 1年当たりのコージェネレーション設備による発電量のうちの自己消費分 (kWH/yr) (s8 4)
+    E_E_CG_self = section2_2.get_E_E_CG_self(E_E_TU_aux_d_t)
+
+    # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
+    E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
+
+    # 1年当たりのコージェネレーション設備による売電量に係るガス消費量の控除量 (MJ/yr) (20)
+    # この値は1時間ごとには計算できない。
+    E_G_CG_sell = section2_2.calc_E_G_CG_sell(E_CG_sell, E_E_CG_self, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG)
+
+
+
     e = Energy(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
@@ -174,8 +228,16 @@ def run(spec: Dict):
 
     e.E_G_CGs = E_G_CG_d_t
     e.E_K_CGs = E_K_CG_d_t
+
+    e.E_E_CG_gens = E_E_CG_gen_d_t
+    e.E_E_CG_hs = E_E_CG_h_d_t
+
+    e.E_E_PVs = E_E_PV_d_t
+    e.E_E_PV_hs = E_E_PV_h_d_t
+
+
     
-    return E_E_dmd_d_t, f_prim, e, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h
+    return E_E_dmd_d_t, f_prim, e, E_G_CG_sell
 
 
 def get_envelope(dict_env: Dict):

@@ -19,55 +19,7 @@ def calc_total_energy(spec: Dict):
     
     # ---- 事前データ読み込み ----
 
-    # 日射量データの読み込み
-    solrad = None
-    if (spec['SHC'] is not None or spec['PV'] is not None) and 'sol_region' in spec:
-        if spec['sol_region'] is not None:
-            solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
-
-    E_E_dmd_d_t, f_prim, e, E_E_CG_gen_d_t, E_E_TU_aux_d_t, E_G_CG_ded, e_BB_ave, Q_CG_h = energy_calc.run(spec=spec)
-
-    E_W = e.get_E_W() + e.get_E_CG()
-
-    if spec['CG'] is not None:
-        has_CG = True
-        has_CG_reverse = spec['CG']["reverse"] if 'reverse' in spec['CG'] else False
-    else:
-        has_CG = False
-        has_CG_reverse = False
-
-    # 太陽光発電が設置されているか否か
-    if spec['PV'] is not None:
-        has_PV = True
-    else:
-        has_PV = False
-    
-    # 1時間当たりの太陽光発電設備による発電量(s9-1 1), kWh/h
-    if has_PV:
-        E_E_PV_d_t = section9_1.calc_E_E_PV_d_t(spec['PV'], solrad)
-    else:
-        E_E_PV_d_t = np.zeros(24 * 365)
-
-    # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
-    # コージェネレーション設備による発電量と電力需要を比較する。
-    # PV よりもコージェネレーション設備による発電量が優先的に自家消費分にまわされる。
-    E_E_CG_h_d_t = section2_2.get_E_E_CG_h_d_t(E_E_CG_gen_d_t, E_E_dmd_d_t, has_CG)
-
-    # 1 時間当たりの太陽光発電設備による消費電力削減量（自家消費分） (17-1)(17-2), kWh/h
-    # コージェネレーション設備による発電量を考慮した残りの電力需要と比較して太陽光発電設備による自家消費分を決める。
-    E_E_PV_h_d_t = section2_2.get_E_E_PV_h_d_t(E_E_PV_d_t, E_E_dmd_d_t, E_E_CG_h_d_t, has_PV)
-
-    # 1時間当たりのコージェネレーション設備による売電量(二次エネルギー) (kWh/h) (24-1)(24-2)
-    E_E_CG_sell_d_t = section2_2.get_E_E_CG_sell_d_t(E_E_CG_gen_d_t, E_E_CG_h_d_t, has_CG_reverse)
-
-    # 1年当たりのコージェネレーション設備による売電量（一次エネルギー換算値）(MJ/yr) (23)
-    E_CG_sell = np.sum(E_E_CG_sell_d_t) * f_prim / 1000
-
-    # 1年当たりのコージェネレーション設備による発電量のうちの自己消費分 (kWH/yr) (s8 4)
-    E_E_CG_self = section2_2.get_E_E_CG_self(E_E_TU_aux_d_t)
-
-    # エネルギー利用効率化設備による設計一次エネルギー消費量の削減量
-    E_E_CG_h = section2_2.get_E_E_CG_h(E_E_CG_h_d_t)
+    E_E_dmd_d_t, f_prim, e, E_G_CG_sell = energy_calc.run(spec=spec)
 
     # ---- 二次エネの計算 ----
 
@@ -90,13 +42,15 @@ def calc_total_energy(spec: Dict):
     # 1 年当たりの照明設備の設計一次エネルギー消費量
     E_L = e.get_E_L()
 
+    E_W = e.get_E_W() + e.get_E_CG()
+
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + e.E_E_APs + e.E_E_CCs - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + e.E_E_APs + e.E_E_CCs - e.E_E_PV_hs - e.E_E_CG_hs
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, e.E_E_APs, e.E_E_CCs, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, e.E_E_CG_hs, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, e.E_E_APs, e.E_E_CCs, e.E_E_PVs, e.E_E_PV_hs, E_E_dmd_d_t, E_E_d_t)
     
-    E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
+    E_gen = (np.sum(e.E_E_PVs) + np.sum(e.E_E_CG_gens)) * f_prim / 1000
 
     # 1 年当たりの設計ガス消費量（MJ/年）
     E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, e.E_G_Ws, e.E_G_CGs, e.E_G_APs, e.E_G_CCs, spec['A_A'])
@@ -104,14 +58,10 @@ def calc_total_energy(spec: Dict):
     # 1 年当たりの設計灯油消費量（MJ/年）
     E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, e.E_K_Ws, e.E_K_CGs, e.E_K_APs, e.E_K_CCs)
 
-    E_E_gen = np.sum(E_E_PV_d_t + E_E_CG_gen_d_t)
+    E_E_gen = np.sum(e.E_E_PVs + e.E_E_CG_gens)
 
     # 1年当たりのその他の設計一次エネルギー消費量
     E_M = e.get_E_AP() + e.get_E_CC()
-
-    # 1年当たりのコージェネレーション設備による売電量に係るガス消費量の控除量 (MJ/yr) (20)
-    # この値は1時間ごとには計算できない。
-    E_G_CG_sell = section2_2.calc_E_G_CG_sell(E_CG_sell, E_E_CG_self, E_E_CG_h, E_G_CG_ded, e_BB_ave, Q_CG_h, has_CG)
 
     # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
     # 次の E_S_h と E_S_sell を足す
@@ -120,13 +70,15 @@ def calc_total_energy(spec: Dict):
     #   E_S_sell = E_G_CG_sell
     #   1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
     # この値は1時間ごとには計算できない。
-    E_S = np.sum(E_E_PV_h_d_t + E_E_CG_h_d_t) * f_prim / 1000 + E_G_CG_sell
+    E_S = np.sum(e.E_E_PV_hs + e.E_E_CG_hs) * f_prim / 1000 + E_G_CG_sell
 
     # 1 年当たりの設計一次エネルギー消費量（MJ/年）(s2-2-1)
     E_T_star = E_H + E_C + E_V + E_L + E_W - E_S + E_M
 
     # 小数点以下一位未満の端数があるときはこれを切り上げてMJをGJに変更する
     E_T = ceil(E_T_star / 100) / 10  # (1)
+
+
 
     print('===============================')
     print('参照値: ' + str(results[0]))
@@ -143,7 +95,6 @@ def calc_total_energy(spec: Dict):
     print('ガス（二次） MJ/年 (30929.2) : ' + str(E_G))
     print('灯油（二次） MJ/年 (0.0) : ' + str(E_K))
     print('発電量（一次） MJ/年 (37868.41...) : ' + str(E_gen))
-    print('コージェネ (0.0) : ' + str(E_E_CG_h))
     print('発電量（二次） kWh/年 :(3879.96) : ' + str(E_E_gen))
     print('未処理負荷 (427.1) : ' + str(UPL))
 
