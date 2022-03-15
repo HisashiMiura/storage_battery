@@ -235,9 +235,16 @@ def run(spec: Dict):
     e.E_E_PVs = E_E_PV_d_t
     e.E_E_PV_hs = E_E_PV_h_d_t
 
-
+    # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
+    # 次の E_S_h と E_S_sell を足す
+    # E_S_h: 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
+    # E_S_sell: 1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
+    #   E_S_sell = E_G_CG_sell
+    #   1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
+    # この値は1時間ごとには計算できない。
+    E_S = np.sum(e.E_E_PV_hs + e.E_E_CG_hs) * f_prim / 1000 + E_G_CG_sell
     
-    return E_E_dmd_d_t, f_prim, e, E_G_CG_sell
+    return e, E_S
 
 
 def get_envelope(dict_env: Dict):

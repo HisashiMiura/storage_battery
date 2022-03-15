@@ -100,7 +100,7 @@ class Energy:
         # 1時間当たりの太陽光発電設備による発電量 [8760], kWh/h
         self.E_E_PVs = np.zeros(8760)
 
-        # 1時間当たりの太陽光発電設備による消費電力削減量（自家消費分） [8760, kWh/h
+        # 1時間当たりの太陽光発電設備による発電量のうちの自家消費分 [8760], kWh/h
         self.E_E_PV_hs = np.zeros(8760)
 
 
@@ -205,5 +205,36 @@ class Energy:
         E_CGs = self.E_G_CGs + self.E_K_CGs
 
         return np.sum(E_CGs)
+
+    def get_E_E(self) -> np.ndarray:
+        """年間の消費電力量を取得する。
+
+        Returns:
+            年間の消費電力量, kWh/year
+        """
+
+        return np.sum(self.E_E_Hs + self.E_E_Cs + self.E_E_Vs + self.E_E_Ls + self.E_E_Ws + self.E_E_APs + self.E_E_CCs - self.E_E_PV_hs - self.E_E_CG_hs)
+
+    def get_E_G(self) -> np.ndarray:
+        """年間のガス消費量を取得する。
+
+        Returns:
+            年間のガス消費量, MJ/year
+        """
+
+        return np.sum(self.E_G_Hs + self.E_G_Cs + self.E_G_Ws + self.E_G_CGs + self.E_G_APs + self.E_G_CCs)
+
+    def get_E_K(self) -> np.ndarray:
+        """年間の灯油消費量を取得する。
+
+        Returns:
+            年間の灯油消費量, MJ/year
+        """
+
+        return np.sum(self.E_K_Hs + self.E_K_Cs + self.E_K_Ws + self.E_K_CGs + self.E_K_APs + self.E_K_CCs)
+
+
+
+
 
 

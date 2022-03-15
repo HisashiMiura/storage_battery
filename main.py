@@ -5,13 +5,11 @@ from decimal import Decimal, ROUND_HALF_UP
 import pandas as pd
 
 from pyhees.section2_1 import calc_E_T
-from pyhees import section2_1, section2_2, section10
 
 import pvbatt
-from pyhees import section11_2
-from pyhees import section9_1
 
 import energy_calc
+from c_energy import Energy
 
 def calc_total_energy(spec: Dict):
 
@@ -19,9 +17,7 @@ def calc_total_energy(spec: Dict):
     
     # ---- 事前データ読み込み ----
 
-    E_E_dmd_d_t, f_prim, e, E_G_CG_sell = energy_calc.run(spec=spec)
-
-    # ---- 二次エネの計算 ----
+    e, E_S = energy_calc.run(spec=spec)
 
     # 年間の暖房設備の設計一次エネルギー消費量, MJ/year
     E_H = e.get_E_H()
@@ -29,13 +25,6 @@ def calc_total_energy(spec: Dict):
     # 年間の冷房設備の設計一次エネルギー消費量, MJ/year
     E_C = e.get_E_C()
     
-    # 1 年当たりの未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/年
-    # 小数点以下一位未満の端数があるときは、これを四捨五入する。, MJ/年
-    E_UT_H = Decimal(e.get_E_UT_H()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-    E_UT_C = Decimal(e.get_E_UT_C()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-    UPL = E_UT_H + E_UT_C
-
     # 1 年当たりの機械換気設備の設計一次エネルギー消費量
     E_V = e.get_E_V()
 
@@ -44,33 +33,19 @@ def calc_total_energy(spec: Dict):
 
     E_W = e.get_E_W() + e.get_E_CG()
 
-    # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + e.E_E_APs + e.E_E_CCs - e.E_E_PV_hs - e.E_E_CG_hs
-
-    # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, e.E_E_CG_hs, e.E_E_Ws, e.E_E_Ls, e.E_E_Vs, e.E_E_APs, e.E_E_CCs, e.E_E_PVs, e.E_E_PV_hs, E_E_dmd_d_t, E_E_d_t)
+    # 年間の設計消費電力量（二次）, kWh/year
+    E_E = Decimal(e.get_E_E()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
     
-    E_gen = (np.sum(e.E_E_PVs) + np.sum(e.E_E_CG_gens)) * f_prim / 1000
+    # 年間の設計ガス消費量, MJ/year
+    E_G = Decimal(e.get_E_G()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
-    # 1 年当たりの設計ガス消費量（MJ/年）
-    E_G = calc_E_G(e.E_G_Hs, e.E_G_Cs, e.E_G_Ws, e.E_G_CGs, e.E_G_APs, e.E_G_CCs, spec['A_A'])
-
-    # 1 年当たりの設計灯油消費量（MJ/年）
-    E_K = calc_E_K(e.E_K_Hs, e.E_K_Cs, e.E_K_Ws, e.E_K_CGs, e.E_K_APs, e.E_K_CCs)
-
-    E_E_gen = np.sum(e.E_E_PVs + e.E_E_CG_gens)
+    # 年間の設計灯油消費量, MJ/year
+    E_K = Decimal(e.get_E_K()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
     # 1年当たりのその他の設計一次エネルギー消費量
     E_M = e.get_E_AP() + e.get_E_CC()
 
-    # 1年当たりのエネルギー利用効率化設備による設計一次エネルギー消費量の削減量 (MJ/yr) (14)
-    # 次の E_S_h と E_S_sell を足す
-    # E_S_h: 1年当たりのエネルギー利用効率化設備による発電量のうちの自家消費分に係る一次エネルギー消費量の控除量 (MJ/yr) (15)
-    # E_S_sell: 1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
-    #   E_S_sell = E_G_CG_sell
-    #   1年当たりのコージェネレーション設備の売電量に係る設計一次エネルギー消費量の控除量 (MJ/yr) (16)
-    # この値は1時間ごとには計算できない。
-    E_S = np.sum(e.E_E_PV_hs + e.E_E_CG_hs) * f_prim / 1000 + E_G_CG_sell
+    E_E_gen = np.sum(e.E_E_PVs + e.E_E_CG_gens)
 
     # 1 年当たりの設計一次エネルギー消費量（MJ/年）(s2-2-1)
     E_T_star = E_H + E_C + E_V + E_L + E_W - E_S + E_M
@@ -78,7 +53,11 @@ def calc_total_energy(spec: Dict):
     # 小数点以下一位未満の端数があるときはこれを切り上げてMJをGJに変更する
     E_T = ceil(E_T_star / 100) / 10  # (1)
 
-
+    # 1 年当たりの未処理暖房負荷の設計一次エネルギー消費量相当値, MJ/年
+    # 小数点以下一位未満の端数があるときは、これを四捨五入する。, MJ/年
+    E_UT_H = Decimal(e.get_E_UT_H()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+    E_UT_C = Decimal(e.get_E_UT_C()).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+    UPL = E_UT_H + E_UT_C
 
     print('===============================')
     print('参照値: ' + str(results[0]))
@@ -91,83 +70,10 @@ def calc_total_energy(spec: Dict):
     print('自家消費分: ' + str( round(E_S/1000, 1)))
     print('その他: ' + str( round(E_M/1000, 1)))
     print('電気（二次）kWh/年 (3873.4) : ' + str(E_E))
-    print('電気（一次）kWh/年 (37804.384) : ' + str(E_E * f_prim / 1000))
     print('ガス（二次） MJ/年 (30929.2) : ' + str(E_G))
     print('灯油（二次） MJ/年 (0.0) : ' + str(E_K))
-    print('発電量（一次） MJ/年 (37868.41...) : ' + str(E_gen))
     print('発電量（二次） kWh/年 :(3879.96) : ' + str(E_E_gen))
     print('未処理負荷 (427.1) : ' + str(UPL))
-
-
-def calc_E_E(E_E_H_d_t, E_E_C_d_t, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t):
-    """1 年当たりの設計消費電力量（kWh/年）
-    Args:
-      PV(ndarray, optional, optional): 太陽光発電設備のリスト, defaults to None
-    Returns:
-      1 年当たりの設計消費電力量（kWh/年）: 1 年当たりの設計消費電力量（kWh/年）
-    """
-    
-    E_E = sum(E_E_H_d_t) \
-          + sum(E_E_C_d_t) \
-          + sum(E_E_V_d_t) \
-          + sum(E_E_L_d_t) \
-          + sum(E_E_W_d_t) \
-          + sum(E_E_AP_d_t) \
-          + sum(E_E_CC_d_t) \
-          - sum(E_E_PV_h_d_t) \
-          - sum(E_E_CG_h_d_t)  # (25)
-
-    print(E_E)
-    print(sum(E_E_d_t))
-
-    # 小数点以下一位未満の端数があるときは、これを四捨五入する。
-    return Decimal(E_E).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-
-def calc_E_G(E_G_H_d_t, E_G_C_d_t, E_G_W_d, E_G_CG_d_t, E_G_AP_d_t, E_G_CC_d_t, A_A):
-    """1 年当たりの設計ガス消費量（MJ/年）
-
-    Args:
-      A_A(float): 床面積の合計 (m2)
-
-    Returns:
-      float: 1 年当たりの設計ガス消費量（MJ/年）
-
-    """
-
-    E_G = sum(E_G_H_d_t) \
-          + sum(E_G_C_d_t) \
-          + sum(E_G_W_d) \
-          + sum(E_G_CG_d_t) \
-          + sum(E_G_AP_d_t) \
-          + sum(E_G_CC_d_t)  # (26)
-
-    # 小数点以下一位未満の端数があるときは、これを四捨五入する。
-    return Decimal(E_G).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-
-def calc_E_K(E_K_H_d_t, E_K_C_d_t, E_K_W_d_t, E_K_CG_d_t, E_K_AP_d_t, E_K_CC_d_t):
-    """1 年当たりの設計灯油消費量（MJ/年）
-
-    Args:
- 
-    Returns:
-      float: 1 年当たりの設計灯油消費量（MJ/年）
-
-    """
-    
-    # 1年当たりの設計灯油消費量（MJ / 年）
-    E_K_raw = sum(E_K_H_d_t) \
-              + sum(E_K_C_d_t) \
-              + sum(E_K_W_d_t) \
-              + sum(E_K_CG_d_t) \
-              + sum(E_K_AP_d_t) \
-              + sum(E_K_CC_d_t)  # (27)
-
-    # 小数点以下一位未満の端数があるときは、これを四捨五入する。
-    E_K = Decimal(E_K_raw).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-    return E_K
 
 
 if __name__ == '__main__':
