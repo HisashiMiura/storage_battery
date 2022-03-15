@@ -68,6 +68,10 @@ def run(spec: Dict):
         spec['C_A'], spec['C_MR'], spec['C_OR'],
         L_T_H_d_t_i, L_CS_d_t, L_CL_d_t, spec['mode_C'])
 
+    E_E_V_d_t = section2_2.calc_E_E_V_d_t(n_p, spec['A_A'], spec['V'], spec['HEX'])
+
+    E_E_L_d_t = section2_2.calc_E_E_L_d_t(n_p, spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
+
     e = Energy(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
@@ -81,6 +85,10 @@ def run(spec: Dict):
     e.E_K_Cs = E_K_C_d_t
     e.E_M_Cs = E_M_C_d_t
     e.E_UT_Cs = E_UT_C_d_t
+
+    e.E_E_Vs = E_E_V_d_t
+
+    e.E_E_Ls = E_E_L_d_t
 
     return n_p, f_prim, Q, mu_H, mu_C, spec_MR, spec_OR, mode_MR, mode_OR, L_T_H_d_t_i, spec_HS, heating_flag_d, e
 

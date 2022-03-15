@@ -57,10 +57,6 @@ def calc_total_energy(spec: Dict):
     # 1時間当たりの給湯設備のその他の燃料による一次エネルギー消費量, MJ/h
     E_M_W_d_t = section7_1.get_E_M_W_d_t()
     
-    E_E_L_d_t = section2_2.calc_E_E_L_d_t(n_p, spec['A_A'], spec['A_MR'], spec['A_OR'], spec['L'])
-
-    E_E_V_d_t = section2_2.calc_E_E_V_d_t(n_p, spec['A_A'], spec['V'], spec['HEX'])
-
     #region その他の一次エネルギー消費量
 
     # 1時間当たりの家電の消費電力量, kWh/h
@@ -90,7 +86,7 @@ def calc_total_energy(spec: Dict):
     #endregion
 
     # 1時間当たりの電力需要 (28)
-    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, E_E_V_d_t, E_E_L_d_t, E_E_W_d_t, E_E_AP_d_t)
+    E_E_dmd_d_t = section2_2.get_E_E_dmd_d_t(e.E_E_Hs, e.E_E_Cs, e.E_E_Vs, e.E_E_Ls, E_E_W_d_t, E_E_AP_d_t)
 
     # 1 年当たりの給湯設備（コージェネレーション設備を含む）の設計一次エネルギー消費量
     # E_E_CG_gen_d_t: 1時間当たりのコージェネレーション設備による発電量 (kWh/h)
@@ -103,12 +99,6 @@ def calc_total_energy(spec: Dict):
                 spec['A_A'], spec['region'], spec['sol_region'], spec_HW, spec['SHC'], spec['CG'], spec['A_MR'], spec['A_OR'])
     
     E_W_d_t = E_E_W_d_t * f_prim / 1000 + E_G_W_d_t + E_K_W_d_t + E_M_W_d_t + E_G_CG_d_t + E_K_CG_d_t
-
-    # 1 年当たりの照明設備の設計一次エネルギー消費量
-    E_L = np.sum(E_E_L_d_t) * f_prim / 1000  # (7)
-
-    # 1 年当たりの機械換気設備の設計一次エネルギー消費量
-    E_V = np.sum(E_E_V_d_t) * f_prim / 1000
 
     E_W = np.sum(E_W_d_t)
 
@@ -167,11 +157,17 @@ def calc_total_energy(spec: Dict):
 
     UPL = E_UT_H + E_UT_C
 
+    # 1 年当たりの機械換気設備の設計一次エネルギー消費量
+    E_V = e.get_E_V()
+
+    # 1 年当たりの照明設備の設計一次エネルギー消費量
+    E_L = e.get_E_L()
+
     # 1時間当たりの設計消費電力量（二次）, kWh/h
-    E_E_d_t = e.E_E_Hs + e.E_E_Cs + E_E_V_d_t + E_E_L_d_t + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
+    E_E_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + E_E_W_d_t + E_E_AP_d_t + E_E_CC_d_t - E_E_PV_h_d_t - E_E_CG_h_d_t
 
     # 1 年当たりの設計消費電力量（kWh/年）
-    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, E_E_W_d_t, E_E_L_d_t, E_E_V_d_t, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
+    E_E = calc_E_E(e.E_E_Hs, e.E_E_Cs, E_E_CG_h_d_t, E_E_W_d_t, e.E_E_Ls, e.E_E_Vs, E_E_AP_d_t, E_E_CC_d_t, E_E_PV_d_t, E_E_PV_h_d_t, E_E_dmd_d_t, E_E_d_t)
     
     E_gen = (np.sum(E_E_PV_d_t) + np.sum(E_E_CG_gen_d_t)) * f_prim / 1000
 
