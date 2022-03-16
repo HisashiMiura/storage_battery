@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 class Energy:
@@ -233,8 +234,29 @@ class Energy:
 
         return np.sum(self.E_K_Hs + self.E_K_Cs + self.E_K_Ws + self.E_K_CGs + self.E_K_APs + self.E_K_CCs)
 
-
-
-
+    def get_df(self) -> pd.DataFrame:
+    
+        return pd.DataFrame(
+            [
+                self.E_E_Hs, self.E_G_Hs, self.E_K_Hs, self.E_M_Hs, self.E_UT_Hs,
+                self.E_E_Cs, self.E_G_Cs, self.E_K_Cs, self.E_M_Cs, self.E_UT_Cs,
+                self.E_E_Vs, self.E_E_Ls, 
+                self.E_E_Ws, self.E_G_Ws, self.E_K_Ws, self.E_M_Ws,
+                self.E_E_APs, self.E_G_APs, self.E_K_APs, self.E_M_APs,
+                self.E_E_CCs, self.E_G_CCs, self.E_K_CCs, self.E_M_CCs,
+                self.E_G_CGs, self.E_K_CGs, self.E_E_CG_gens, self.E_E_CG_hs,
+                self.E_E_PVs, self.E_E_PV_hs
+            ],
+            index=[
+                "暖房E(kWh/h)", "暖房G(MJ/h)", "暖房K(MJ/h)", "暖房M(MJ/h)", "暖房UT(MJ/h)",
+                "冷房E(kWh/h)", "冷房G(MJ/h)", "冷房K(MJ/h)", "冷房M(MJ/h)", "冷房UT(MJ/h)",
+                "換気E(kWh/h)", "照明E(kWh/h)",
+                "給湯E(kWh/h)", "給湯G(MJ/h)", "給湯K(MJ/h)", "給湯M(MJ/h)",
+                "家電E(kWh/h)", "家電G(MJ/h)", "家電K(MJ/h)", "家電M(MJ/h)",
+                "調理E(kWh/h)", "調理G(MJ/h)", "調理K(MJ/h)", "調理M(MJ/h)",
+                "コージェネG(MJ/h)", "コージェネK(MJ/h)", "コージェネ発電(kWh/h)", "コージェネ発電(自家消費)(kWh/h)",
+                "PV発電(KWh/h)", "PV発電(自家消費)(kWh/h)"
+            ]
+        ).transpose()
 
 

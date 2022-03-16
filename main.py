@@ -75,6 +75,8 @@ def calc_total_energy(spec: Dict):
     print('発電量（二次） kWh/年 :(3879.96) : ' + str(E_E_gen))
     print('未処理負荷 (427.1) : ' + str(UPL))
 
+    return e
+
 
 if __name__ == '__main__':
 
@@ -170,7 +172,9 @@ if __name__ == '__main__':
         }
     }
 
-    calc_total_energy(spec=spec)
+    e = calc_total_energy(spec=spec)
+
+    e.get_df().to_csv("energy_output.csv", index=False, encoding="SHIFT-JIS")
 
     spec = {
         "E_dash_dash_E_in_rtd_PVtoDB": 6.0,
