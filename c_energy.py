@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class Energy:
+class EnergyLogger:
 
     def __init__(self, f_prim: float):
         """所持する変数をnp.zeros（配列数8760）で初期化する。

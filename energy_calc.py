@@ -1,7 +1,7 @@
 from typing import Dict
 import numpy as np
 
-from c_energy import Energy
+from c_energy import EnergyLogger
 from pyhees import section2_1, section2_2
 from pyhees import section3_1, section3_2, section3_1_heatingday
 from pyhees import section4_1
@@ -193,7 +193,7 @@ def run(spec: Dict):
 
 
 
-    e = Energy(f_prim=section2_1.get_f_prim())
+    e = EnergyLogger(f_prim=section2_1.get_f_prim())
 
     e.E_E_Hs = E_E_H_d_t
     e.E_G_Hs = E_G_H_d_t
@@ -271,7 +271,7 @@ def get_envelope(dict_env: Dict):
 
     _, _, _, _, Q_dash, mu_H, mu_C, _ = section3_2.calc_insulation_performance(**dict_env)
 
-    Q = section3_1.get_Q(Q_dash)
+    Q = section3_1.get_Q(Q_dash=Q_dash)
 
     A_env = dict_env.get('A_env')
 

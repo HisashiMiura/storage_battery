@@ -13,10 +13,17 @@ def draw_graph(y_title: str, ys: List[Tuple[np.ndarray, str]], op: str ='ave', d
     """1年間の時系列のグラフを描画する。
 
     Args:
-        y_title (_type_): _description_
-        ys (_type_): _description_
-        op (str, optional): _description_. Defaults to 'ave'.
-        display_date (str, optional): _description_. Defaults to 'year'.
+        y_title: Y軸のタイトル
+        ys: データと凡例のタプルのリスト
+            データは numpy 配列で配列数は8760でないといけない
+        op: データの加工方式。以下の文字を指定する。
+            ave: 1日ごとに平均化処理をする。データは配列数 365 に加工される。
+            itg: 1日ごとに積算処理をする。データは配列数 365 に加工される。
+            a3: 1日ごとに最低値・平均値・最大値を計算する。データは配列数 365 ✕ 3 に加工される。
+            a5: 1日ごとに最低値・25パーセンタイル値・50パーセンタイル値・75パーセンタイル値・最大値を計算する。
+                データは配列数 365 ✕ 5 に加工される。
+            raw: 特に加工はしない。データは配列数8760のまま。
+        display_date: 1日単位で表示したい場合に日付を指定する。（例："5/14"）
     """
 
     plt.style.use('seaborn-whitegrid')
