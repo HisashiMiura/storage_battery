@@ -9,7 +9,7 @@ from pyhees import section7_1, section7_1_b
 from pyhees import section8
 from pyhees import section9_1
 from pyhees import section10
-from pyhees import section11_2
+from pyhees import section11_1, section11_2
 
 def run(spec: Dict):
     """エネルギー消費量を計算する。
@@ -245,6 +245,13 @@ def run(spec: Dict):
     E_S = np.sum(e.E_E_PV_hs + e.E_E_CG_hs) * f_prim / 1000 + E_G_CG_sell
     
     return e, E_S
+
+
+def get_outdoor_temp(region: int) -> np.ndarray:
+    
+    outdoor = section11_1.load_outdoor()
+    Theta_ex_d_t = section11_1.get_Theta_ex(region, outdoor)
+    return Theta_ex_d_t
 
 
 def get_envelope(dict_env: Dict):

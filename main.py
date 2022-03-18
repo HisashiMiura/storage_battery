@@ -4,16 +4,15 @@ from math import radians, ceil
 from decimal import Decimal, ROUND_HALF_UP
 import pandas as pd
 
-from pyhees.section2_1 import calc_E_T
-
+from pyhees import section2_1
 import pvbatt
-
 import energy_calc
 from c_energy import Energy
+import graph_control
 
 def calc_total_energy(spec: Dict):
 
-    results = calc_E_T(spec)
+    results = section2_1.calc_E_T(spec)
     
     # ---- 事前データ読み込み ----
 
@@ -173,6 +172,8 @@ if __name__ == '__main__':
     }
 
     e = calc_total_energy(spec=spec)
+
+    graph_control.draw_graph(y_title="test", ys=[(e.E_E_Hs, "heating")])
 
     e.get_df().to_csv("energy_output.csv", index=False, encoding="SHIFT-JIS")
 
