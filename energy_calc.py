@@ -36,6 +36,9 @@ def run(spec: Dict):
     # 暖房方式及び運転方法の区分
     mode_MR, mode_OR = section2_2.calc_heating_mode(region=spec['region'], H_MR=spec_MR, H_OR=spec_OR)
 
+    # 実質的な温水暖房機の仕様を取得
+    spec_HS = section2_2.get_virtual_heatsource(spec['region'], spec['H_HS'])
+
     # 暖房負荷の取得
     L_T_H_d_t_i, L_dash_H_R_d_t_i = section2_2.calc_heating_load(
         spec['region'], spec['sol_region'],
@@ -43,9 +46,6 @@ def run(spec: Dict):
         Q, mu_H, mu_C, spec['NV_MR'], spec['NV_OR'], spec['TS'], spec['r_A_ufvnt'], spec['HEX'],
         spec['underfloor_insulation'], spec['mode_H'], spec['mode_C'],
         spec_MR, spec_OR, mode_MR, mode_OR, spec['SHC'])
-
-    # 実質的な温水暖房機の仕様を取得
-    spec_HS = section2_2.get_virtual_heatsource(spec['region'], spec['H_HS'])
 
     # 暖房日の計算
     if spec['SHC'] is not None and spec['SHC']['type'] == '空気集熱式':
@@ -161,10 +161,7 @@ def run(spec: Dict):
             solrad = section11_2.load_solrad(spec['region'], spec['sol_region'])
 
     # 1時間当たりの太陽光発電設備による発電量(s9-1 1), kWh/h
-    if has_PV:
-        E_E_PV_d_t = section9_1.calc_E_E_PV_d_t(spec['PV'], solrad)
-    else:
-        E_E_PV_d_t = np.zeros(24 * 365)
+    E_E_PV_d_t = calc_E_E_PV_d_t(spec['PV'], solrad)
 
     # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
     # コージェネレーション設備による発電量と電力需要を比較する。
@@ -505,3 +502,19 @@ def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, b
     return L_dashdash_k_d_t,L_dashdash_s_d_t,L_dashdash_w_d_t,L_dashdash_b1_d_t,L_dashdash_b2_d_t,L_dashdash_ba1_d_t,L_dashdash_ba2_d_t
 
 
+def calc_E_E_PV_d_t(pv_list, df):
+    """太陽光発電設備の発電量 (1)
+
+    Args:
+      pv_list(list: list: list): 太陽光発電設備のリスト
+      df(DateFrame): load_solrad の返り値
+
+    Returns:
+      ndarray: 日付dの時tにおける 1 時間当たりの太陽光発電設備による発電量（kWh/h）
+
+    """
+
+    if pv_list is not None:
+        return np.sum([section9_1.calc_E_p_i_d_t(**pv, df=df) for pv in pv_list], axis = 0)
+    else:
+        return np.zeros(24 * 365)

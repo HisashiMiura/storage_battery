@@ -226,6 +226,7 @@ class EnergyLogger:
         return np.sum(self.E_G_Hs + self.E_G_Cs + self.E_G_Ws + self.E_G_CGs + self.E_G_APs + self.E_G_CCs)
 
     def get_E_K(self) -> np.ndarray:
+        
         """年間の灯油消費量を取得する。
 
         Returns:

@@ -1594,7 +1594,7 @@ def get_T(theta: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     T = theta + 273.16
     return T
 
-def calculate(spec: dict, df: pd.DataFrame)-> pd.DataFrame:
+def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> pd.DataFrame:
     """機器仕様と時系列電力需要から出力値の計算を行う
 
     Args:
@@ -1643,13 +1643,13 @@ def calculate(spec: dict, df: pd.DataFrame)-> pd.DataFrame:
     E_E_aux_PCS_d_t = np.zeros(8760)
 
     # 系統からの電力供給の有無
-    SC_d_t = get_SC_d_t(df)
+    # SC_d_t = get_SC_d_t(df)
 
     # パワーコンディショナおよび蓄電設備の補機の消費電力量を除く電力需要
-    E_E_dmd_excl_d_t = get_E_E_dmd_excl_d_t(df)
+    # E_E_dmd_excl_d_t = get_E_E_dmd_excl_d_t(df)
 
     # 外気温度
-    theta_ex_d_t = get_theta_ex_d_t(df)
+    # theta_ex_d_t = get_theta_ex_d_t(df)
 
     # 8.8 パワーコンディショナの仕様
 
@@ -1666,7 +1666,7 @@ def calculate(spec: dict, df: pd.DataFrame)-> pd.DataFrame:
     K_IN = get_K_IN(eta_IN_R)
     K_PM_i = get_K_PM_i(spec)
     n = get_n(spec)
-    E_p_i_d_t = get_E_p_i_d_t(df, n)
+    # E_p_i_d_t = get_E_p_i_d_t(df, n)
     E_dash_dash_E_PV_gen_d_t = get_E_dash_dash_E_PV_gen_d_t(n, E_p_i_d_t, K_PM_i, K_IN)
 
 
@@ -1974,25 +1974,3 @@ def calculate(spec: dict, df: pd.DataFrame)-> pd.DataFrame:
 
     return output_data
 
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("spec", help="機器仕様を記述したYAMLファイルを指定します")
-    parser.add_argument("timeseries", help="時系列の電力需要、外気温度,パネル発電量、電力供給を示したCSVファイルを指定します")
-    parser.add_argument("output", help="結果出力等CSVファイルパスを指定します")
-    args = parser.parse_args()
-
-    # 機器仕様読み込み
-    with open(args.spec) as file:
-        spec = yaml.safe_load(file)
-        #print(spec)
-
-    # 時系列電力需要読み込み
-    df = pd.read_csv(args.timeseries, encoding="SHIFT-JIS")
-    # print(df)
-
-    # 出力値を計算する
-    output_data = calculate(spec, df)
-
-    output_data.to_csv(args.output, index=False, encoding="SHIFT-JIS")

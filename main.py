@@ -76,6 +76,44 @@ def calc_total_energy(spec: Dict):
 
     return e
 
+def calc_with_pvbatt(spec: Dict, read_input_csv: bool):
+
+    if spec["CG"] is not None:
+        raise Exception('蓄電池の計算をするにあたって当面の間コージェネレーション設備の設置は考えないことにします。')
+
+    e, _ = energy_calc.run(spec=spec)
+
+    if read_input_csv:
+        
+        # 時系列電力需要読み込み
+        # columns = ["電力供給", "外気温度", "電力需要", "太陽電池アレイの発電量1"]
+        df = pd.read_csv("input.csv", encoding="SHIFT-JIS")
+
+        # 系統からの電力供給の有無
+        SC_d_t = pvbatt.get_SC_d_t(df)
+
+        # パワーコンディショナおよび蓄電設備の補機の消費電力量を除く電力需要
+        E_E_dmd_excl_d_t = pvbatt.get_E_E_dmd_excl_d_t(df)
+
+        # 外気温度
+        theta_ex_d_t = pvbatt.get_theta_ex_d_t(df)
+
+        # 太陽光発電設備による発電量 式(54)
+        n = pvbatt.get_n(pvbatt_spec)
+        E_p_i_d_t = pvbatt.get_E_p_i_d_t(df, n)
+    
+    else:
+
+        SC_d_t = np.ones(8760)
+        E_E_dmd_excl_d_t = e.E_E_Hs + e.E_E_Cs + e.E_E_Vs + e.E_E_Ls + e.E_E_Ws + e.E_E_APs + e.E_E_CCs
+        theta_ex_d_t = energy_calc.get_outdoor_temp(region=spec["region"])
+        
+
+    output_data = pvbatt.calculate(pvbatt_spec, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)
+
+    output_data.to_csv("output.csv", index=False, encoding="SHIFT-JIS")
+
+    return e
 
 if __name__ == '__main__':
 
@@ -171,13 +209,7 @@ if __name__ == '__main__':
         }
     }
 
-    e = calc_total_energy(spec=spec)
-
-    graph_control.draw_graph(y_title="test", ys=[(e.E_E_Hs, "heating")], op='raw', display_date='1/1')
-
-    e.get_df().to_csv("energy_output.csv", index=False, encoding="SHIFT-JIS")
-
-    spec = {
+    pvbatt_spec = {
         "E_dash_dash_E_in_rtd_PVtoDB": 6.0,
         "eta_ce_lim_PVtoDB": 0.6,
         "alpha_PVtoDB": -0.0126,
@@ -207,13 +239,9 @@ if __name__ == '__main__':
         "r_int_dchg_batt": 0.6,
     }
 
-    # 時系列電力需要読み込み
-    # columns = ["電力供給", "外気温度", "電力需要", "太陽電池アレイの発電量1"]
-    df = pd.read_csv("input.csv", encoding="SHIFT-JIS")
+    e = calc_total_energy(spec=spec)
 
-#    print("入力ファイルの表示")
-#    print(df)
-    
-    output_data = pvbatt.calculate(spec, df)
+    # e = calc_with_pvbatt(spec=spec, read_input_csv=True)
 
-    output_data.to_csv("output.csv", index=False, encoding="SHIFT-JIS")
+    e.get_df().to_csv("energy_output.csv", index=False, encoding="SHIFT-JIS")
+
