@@ -4,6 +4,8 @@ import pandas as pd
 import math
 from typing import Union, Tuple
 
+from battery_logger import BatteryLogger
+
 # 5. 太陽光発電設備による発電量のうちの自家消費分・売電分・充電分および蓄電設備による放電量のうちの自家消費分
 
 def get_E_E_PV_h(E_E_srpl: float, E_E_PV_max_sup: float, E_E_dmd_incl: float, SC: bool) -> float:
@@ -1605,42 +1607,7 @@ def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> p
         Tuple: 出力値(E_E_PV_chg_d_t, E_E_PSS_h_d_t, E_E_PV_h_d_t, E_E_PV_sell_d_t)
     """
 
-    # 出力変数の準備
-
-    # (1)
-    E_E_PV_h_d_t = np.zeros(8760)
-    # (2)
-    E_E_PV_sell_d_t = np.zeros(8760)
-    # (3)
-    E_E_PV_chg_d_t = np.zeros(8760)
-    # (4)
-    E_E_PSS_h_d_t = np.zeros(8760)
-    # (5)
-    E_E_PSS_max_sup_d_t = np.zeros(8760)
-    # (6)
-    E_E_srpl_d_t = np.zeros(8760)
-    # (7)
-    E_E_dmd_incl_d_t = np.zeros(8760)
-    # (8)
-    E_E_aux_PSS_d_t = np.zeros(8760)
-    # (9a)
-    E_dash_dash_E_PV_chg_d_t = np.zeros(8760)
-    # (10)
-    E_dash_dash_E_srpl_d_t = np.zeros(8760)
-    # (11)
-    E_dash_dash_E_SB_sup_d_t = np.zeros(8760)
-    # (12)
-    E_E_PV_max_sup_d_t = np.zeros(8760)
-    # (13)
-    E_E_SB_max_sup_d_t = np.zeros(8760)
-    # (14)
-    E_dash_dash_E_PV_max_sup_d_t = np.zeros(8760)
-    # (15)
-    E_dash_dash_E_SB_max_sup_d_t = np.zeros(8760)
-    # (16)
-    E_E_SB_max_chg_d_t = np.zeros(8760)
-    # (25)
-    E_E_aux_PCS_d_t = np.zeros(8760)
+    bl = BatteryLogger(SC_d_t=SC_d_t, E_E_dmd_excl_d_t=E_E_dmd_excl_d_t, theta_ex_d_t=theta_ex_d_t, E_p_i_d_t=E_p_i_d_t)
 
     # 系統からの電力供給の有無
     # SC_d_t = get_SC_d_t(df)
@@ -1923,53 +1890,94 @@ def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> p
         #print('SOC_st1={}, SOC_star_min={}, SOC_star_max={}'.format(SOC_st1, SOC_star_min, SOC_star_max))
 
         # (1)
-        E_E_PV_h_d_t[dt] = E_E_PV_h
+        bl.E_E_PV_h_d_t[dt] = E_E_PV_h
         # (2)
-        E_E_PV_sell_d_t[dt] = E_E_PV_sell
+        bl.E_E_PV_sell_d_t[dt] = E_E_PV_sell
         # (3)
-        E_E_PV_chg_d_t[dt] = E_E_PV_chg
+        bl.E_E_PV_chg_d_t[dt] = E_E_PV_chg
         # (4)
-        E_E_PSS_h_d_t[dt] = E_E_PSS_h
+        bl.E_E_PSS_h_d_t[dt] = E_E_PSS_h
         # (5)
-        E_E_PSS_max_sup_d_t[dt] = E_E_PSS_max_sup
+        bl.E_E_PSS_max_sup_d_t[dt] = E_E_PSS_max_sup
         # (6)
-        E_E_srpl_d_t[dt] = E_E_srpl
+        bl.E_E_srpl_d_t[dt] = E_E_srpl
         # (7)
-        E_E_dmd_incl_d_t[dt] = E_E_dmd_incl
+        bl.E_E_dmd_incl_d_t[dt] = E_E_dmd_incl
         # (8)
-        E_E_aux_PSS_d_t[dt] = E_E_aux_PSS
+        bl.E_E_aux_PSS_d_t[dt] = E_E_aux_PSS
         # (9a)
-        E_dash_dash_E_PV_chg_d_t[dt] = E_dash_dash_E_PV_chg
+        bl.E_dash_dash_E_PV_chg_d_t[dt] = E_dash_dash_E_PV_chg
         # (10)
-        E_dash_dash_E_srpl_d_t[dt] = E_dash_dash_E_srpl
+        bl.E_dash_dash_E_srpl_d_t[dt] = E_dash_dash_E_srpl
         # (11)
-        E_dash_dash_E_SB_sup_d_t[dt] = E_dash_dash_E_SB_sup
+        bl.E_dash_dash_E_SB_sup_d_t[dt] = E_dash_dash_E_SB_sup
         # (12)
-        E_E_PV_max_sup_d_t[dt] = E_E_PV_max_sup
+        bl.E_E_PV_max_sup_d_t[dt] = E_E_PV_max_sup
         # (13)
-        E_E_SB_max_sup_d_t[dt] = E_E_SB_max_sup
+        bl.E_E_SB_max_sup_d_t[dt] = E_E_SB_max_sup
         # (14)
-        E_dash_dash_E_PV_max_sup_d_t[dt] = E_dash_dash_E_PV_max_sup
+        bl.E_dash_dash_E_PV_max_sup_d_t[dt] = E_dash_dash_E_PV_max_sup
         # (15)
-        E_dash_dash_E_SB_max_sup_d_t[dt] = E_dash_dash_E_SB_max_sup
+        bl.E_dash_dash_E_SB_max_sup_d_t[dt] = E_dash_dash_E_SB_max_sup
         # (16)
-        E_E_SB_max_chg_d_t[dt] = E_E_SB_max_chg
+        bl.E_E_SB_max_chg_d_t[dt] = E_E_SB_max_chg
         # (25)
-        E_E_aux_PCS_d_t[dt] = E_E_aux_PCS
+        bl.E_E_aux_PCS_d_t[dt] = E_E_aux_PCS
+
 
     output_data = pd.DataFrame(
         [
-            E_E_PV_h_d_t, E_E_PV_sell_d_t, E_E_PV_chg_d_t, E_E_PSS_h_d_t, E_E_PSS_max_sup_d_t,
-            E_E_srpl_d_t, E_E_dmd_incl_d_t, E_E_aux_PSS_d_t, E_dash_dash_E_PV_chg_d_t, E_dash_dash_E_srpl_d_t,
-            E_dash_dash_E_SB_sup_d_t, E_E_PV_max_sup_d_t, E_E_SB_max_sup_d_t, E_dash_dash_E_PV_max_sup_d_t,
-            E_dash_dash_E_SB_max_sup_d_t, E_E_SB_max_chg_d_t, E_E_aux_PCS_d_t
+            bl.SC_d_t,
+            bl.E_E_dmd_excl_d_t,
+            bl.theta_ex_d_t,
+            bl.E_p_i_d_t[0],
+            bl.E_p_i_d_t[1],
+            bl.E_p_i_d_t[2],
+            bl.E_p_i_d_t[3],
+            bl.E_E_PV_h_d_t,
+            bl.E_E_PV_sell_d_t,
+            bl.E_E_PV_chg_d_t,
+            bl.E_E_PSS_h_d_t,
+            bl.E_E_PSS_max_sup_d_t,
+            bl.E_E_srpl_d_t,
+            bl.E_E_dmd_incl_d_t,
+            bl.E_E_aux_PSS_d_t,
+            bl.E_dash_dash_E_PV_chg_d_t,
+            bl.E_dash_dash_E_srpl_d_t,
+            bl.E_dash_dash_E_SB_sup_d_t,
+            bl.E_E_PV_max_sup_d_t,
+            bl.E_E_SB_max_sup_d_t,
+            bl.E_dash_dash_E_PV_max_sup_d_t,
+            bl.E_dash_dash_E_SB_max_sup_d_t,
+            bl.E_E_SB_max_chg_d_t,
+            bl.E_E_aux_PCS_d_t
         ],
         index=[
-            "E_E_PV_h", "E_E_PV_sell", "E_E_PV_chg", "E_E_PSS_h", "E_E_PSS_max_sup",
-            "E_E_srpl", "E_E_dmd_incl", "E_E_aux_PSS", "E_dash_dash_E_PV_chg", "E_dash_dash_E_srpl",
-            "E_dash_dash_E_SB_sup", "E_E_PV_max_sup", "E_E_SB_max_sup", "E_dash_dash_E_PV_max_sup",
-            "E_dash_dash_E_SB_max_sup", "E_E_SB_max_chg", "E_E_aux_PCS"
-            ]
+            "SC",
+            "E_E_dmd_excl",
+            "theta_ex_d_t",
+            "E_p_0",
+            "E_p_1",
+            "E_p_2",
+            "E_p_3",
+            "E_E_PV_h",
+            "E_E_PV_sell",
+            "E_E_PV_chg",
+            "E_E_PSS_h",
+            "E_E_PSS_max_sup",
+            "E_E_srpl",
+            "E_E_dmd_incl",
+            "E_E_aux_PSS",
+            "E_dash_dash_E_PV_chg",
+            "E_dash_dash_E_srpl",
+            "E_dash_dash_E_SB_sup",
+            "E_E_PV_max_sup",
+            "E_E_SB_max_sup",
+            "E_dash_dash_E_PV_max_sup",
+            "E_dash_dash_E_SB_max_sup",
+            "E_E_SB_max_chg",
+            "E_E_aux_PCS"
+        ]
     ).transpose()
 
     return output_data

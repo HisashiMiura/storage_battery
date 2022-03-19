@@ -98,6 +98,9 @@ class EnergyLogger:
         # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 [8760], kWh/h
         self.E_E_CG_hs = np.zeros(8760)
 
+        # 1時間当たりの太陽光発電設備 i による発電量 [i, 8760], kWh/h
+        self.E_E_PVs_is = np.zeros(shape=(4, 8760))
+
         # 1時間当たりの太陽光発電設備による発電量 [8760], kWh/h
         self.E_E_PVs = np.zeros(8760)
 
