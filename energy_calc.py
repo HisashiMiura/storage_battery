@@ -155,7 +155,7 @@ def run(spec: Dict):
         has_PV = False
 
     # 1時間当たりの太陽光発電設備による発電量(s9-1 1), kWh/h
-    E_E_PV_d_t_is, K_PM_i_list, K_IN_list = calc_E_E_PV_d_t(spec['PV'], spec)
+    E_E_PV_d_t_is = calc_E_E_PV_d_t(spec['PV'], spec)
     E_E_PV_d_t = np.sum(E_E_PV_d_t_is, axis=0)
 
     # 1時間当たりのコージェネレーション設備による発電量のうちの自家消費分 (kWh/h) (19-1)(19-2)
@@ -237,7 +237,7 @@ def run(spec: Dict):
     # この値は1時間ごとには計算できない。
     E_S = np.sum(e.E_E_PV_hs + e.E_E_CG_hs) * f_prim / 1000 + E_G_CG_sell
     
-    return e, E_S, K_PM_i_list, K_IN_list
+    return e, E_S
 
 
 def get_outdoor_temp(region: int) -> np.ndarray:
@@ -498,7 +498,7 @@ def calc_L_dashdash_d_t(spec_HW, heating_flag_d, n_p, region, sol_region, SHC, b
     return L_dashdash_k_d_t,L_dashdash_s_d_t,L_dashdash_w_d_t,L_dashdash_b1_d_t,L_dashdash_b2_d_t,L_dashdash_ba1_d_t,L_dashdash_ba2_d_t
 
 
-def calc_E_E_PV_d_t(pv_list, spec):
+def calc_E_E_PV_d_t(pv, spec):
     """太陽光発電設備の発電量 (1)
 
     Args:
@@ -511,7 +511,7 @@ def calc_E_E_PV_d_t(pv_list, spec):
     """
 
 
-    if pv_list is not None:
+    if pv is not None:
 
         # 日射量データの読み込み
         if 'sol_region' in spec:
@@ -521,26 +521,40 @@ def calc_E_E_PV_d_t(pv_list, spec):
                 solrad = None
         else:
             solrad = None
-        
-        # アレイ回路補正係数
-        K_PM_i_list =[get_K_PM_i(pv_type=pv["pv_type"]) for pv in pv_list]
 
-        # インバータ回路補正係数
-        K_IN_list = [section9_1.get_K_IN(etr_IN_R=pv["etr_IN_r"]) for pv in pv_list]
-
-        return np.array([section9_1.calc_E_p_i_d_t(**pv, df=solrad) for pv in pv_list]), K_PM_i_list, K_IN_list
+        return np.array([section9_1.calc_E_p_i_d_t(**panel, etr_IN_r=pv["etr_IN_r"], df=solrad) for panel in pv["panels"]])
 
     else:
 
-        return np.zeros(shape=(1, 24 * 365)), None, None
+        return np.zeros(shape=(1, 24 * 365))
 
 
-def get_K_PM_i(pv_type):
-    # アレイ回路補正係数
+def get_K_PM_i(pv_type: str) -> float:
+    """アレイ回路補正係数を取得する。
+
+    Args:
+        pv_type: 太陽光パネルの種類
     
+    Returns:
+        アレイ回路補正係数
+    """    
+
     if pv_type == '結晶シリコン系':
         return section9_1.get_table_4()[3][0]
     elif pv_type == '結晶シリコン系以外':
         return section9_1.get_table_4()[3][1]
     else:
         raise NotImplementedError()
+
+
+def get_K_IN(etr_IN_R: float) -> float:
+    """インバータ回路補正係数を取得する。
+
+    Args:
+        etr_IN_R: パワーコンディショナの定格負荷効率
+
+    Returns:
+        インバータ回路補正係数
+    """
+
+    return section9_1.get_K_IN(etr_IN_R=etr_IN_R)

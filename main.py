@@ -84,7 +84,16 @@ def calc_with_pvbatt(spec: Dict, pvbatt_spec: Dict):
     if spec["PV"] is None:
         raise Exception('太陽光発電の設置は必須とします。')
 
-    e, _, K_PM_i_list, K_IN_list = energy_calc.run(spec=spec)
+    e, _ = energy_calc.run(spec=spec)
+
+    # インバータ回路補正係数
+    K_IN = energy_calc.get_K_IN(etr_IN_R=spec["PV"]["etr_IN_r"])
+
+    # アレイ回路補正係数
+    K_PM_i =[energy_calc.get_K_PM_i(pv_type=panel["pv_type"]) for panel in spec["PV"]["panels"]]
+
+    pvbatt_spec["K_IN"] = K_IN
+    pvbatt_spec["K_PM"] = K_PM_i
 
     # 系統からの電力供給の有無
     SC_d_t = np.ones(8760)
@@ -98,7 +107,9 @@ def calc_with_pvbatt(spec: Dict, pvbatt_spec: Dict):
     # 太陽光発電設備による発電量 式(54)
     E_p_i_d_t = e.E_E_PVs_is
 
-    output_data = pvbatt.calculate(pvbatt_spec, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)
+    output_data = pvbatt.calculate(pvbatt_spec, SC_d_t, E_E_dmd_excl_d_t,
+        theta_ex_ds_ts=theta_ex_d_t,
+        E_p_is_ds_ts=E_p_i_d_t)
 
     output_data.to_csv("output.csv", index=False, encoding="SHIFT-JIS")
 
@@ -178,16 +189,18 @@ if __name__ == '__main__':
             "NO_installed": "設置しない"
         },
         "SHC": None,
-        "PV": [
-            {
-                "P_p_i": 4.0,
-                "P_alpha": 0.0,
-                "P_beta": radians(30.0),
-                "pv_type": '結晶シリコン系',
-                "pv_setup": '屋根置き型',
-                "etr_IN_r": 0.9
-            }
-        ],
+        "PV": {
+            "etr_IN_r": 0.9,
+            "panels": [
+                {
+                    "P_p_i": 4.0,
+                    "P_alpha": 0.0,
+                    "P_beta": radians(30.0),
+                    "pv_type": '結晶シリコン系',
+                    "pv_setup": '屋根置き型'
+                }
+            ]
+        },
         "CG": None,
         "ENV": {
             "method": "当該住宅の外皮面積の合計を用いて評価する",
@@ -221,11 +234,6 @@ if __name__ == '__main__':
         "SOC_star_lower": 0.2,
         "SOC_star_upper": 0.8,
         "W_rtd_batt": 12.0,
-        "n": 1,
-        "K_IN": 2.0,
-        "K_PM": [1.0],
-        "eta_IN_R": 1.0,
-        
         "r_int_dchg_batt": 0.6,
     }
 

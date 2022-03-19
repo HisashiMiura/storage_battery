@@ -1472,19 +1472,21 @@ def get_tau_oprt_PSS(E_dash_dash_E_PV_gen: float, E_E_dmd_excl: float, E_dash_da
 # 12. 太陽光発電設備による発電量
 
 
-def get_E_dash_dash_E_PV_gen_d_t(n: int, E_p_i_d_t: np.ndarray, K_PM_i: np.ndarray, K_IN: float) -> float:
+def get_E_dash_dash_E_PV_gen_ds_ts(E_p_is_ds_ts: np.ndarray, K_PM_is: list, K_IN: float) -> float:
     """日付d時刻tにおける1時間当たりの太陽光発電設備による発電量 (kWh/h)
 
     Args:
         n (int): 太陽電池アレイの数
-        E_p_i_d_t (ndarray): 日付dの時刻tにおける1時間当たりの太陽電池アレイiの発電量
-        K_PM_i (ndarray): 太陽電池アレイiのアレイ不可整合補正係数 (-)
+        E_p_is_ds_ts: 日付 d の時刻 t における1時間当たりの太陽電池アレイ i の発電量, kWh/h
+        K_PM_is: 太陽電池アレイiのアレイ不可整合補正係数 (-)
         K_IN (float): インバータ回路補正係数 (-)
 
     Returns:
         float: 日付d時刻tにおける1時間当たりの太陽光発電設備による発電量 (kWh/h)
     """
-    E_dash_dash_E_PV_gen_d_t = np.sum(E_p_i_d_t[:n, :] / K_PM_i[:n], axis=0) / K_IN
+
+    E_dash_dash_E_PV_gen_d_t = np.sum(E_p_is_ds_ts / np.array(K_PM_is).reshape(-1, 1), axis=0) / K_IN
+
     return E_dash_dash_E_PV_gen_d_t
 
 
@@ -1501,18 +1503,6 @@ def get_E_p_i_d_t(df: pd.DataFrame, n: int) -> np.ndarray:
     return np.array([df['太陽電池アレイの発電量{}'.format(i+1)]  for i in range(n) ])
 
 
-def get_n(spec: dict) -> int:
-    """太陽電池アレイの数 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        int: 太陽電池アレイの数 (-)
-    """
-    return spec['n']
-
-
 def get_K_IN(eta_IN_R: float) -> float:
     """インバータ回路補正係数 (-)
 
@@ -1525,7 +1515,7 @@ def get_K_IN(eta_IN_R: float) -> float:
     return eta_IN_R / 0.97
 
 
-def get_K_PM_i(spec: dict) -> float:
+def get_K_PM_is(spec: dict) -> float:
     """太陽電池アレイiのアレイ不可整合補正係数 (-)
 
     Args:
@@ -1535,18 +1525,6 @@ def get_K_PM_i(spec: dict) -> float:
         float: 太陽電池アレイiのアレイ不可整合補正係数 (-)
     """
     return spec['K_PM']
-
-
-def get_eta_IN_R(spec: dict) -> float:
-    """パワーコンディショナの定格不可効率 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: パワーコンディショナの定格不可効率 (-)
-    """
-    return spec['eta_IN_R']
 
 
 # 13. パワーコンディショナおよび蓄電設備の補機の消費電力量を除く電力需要
@@ -1596,27 +1574,21 @@ def get_T(theta: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     T = theta + 273.16
     return T
 
-def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> pd.DataFrame:
+def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, theta_ex_ds_ts: np.ndarray, E_p_is_ds_ts: np.ndarray)-> pd.DataFrame:
     """機器仕様と時系列電力需要から出力値の計算を行う
 
     Args:
-        spec (dict): 機器仕様
-        df (DataFrame): データフレーム
+        spec: 機器仕様
+        SC_ds_ts: 系統からの電力供給の有無 [8760]
+        E_E_dmd_excl_ds_ts: 日付 d の時刻 t における1時間当たりの蓄電設備の補機の消費電力量を除く電力需要 [8760], kWh/h
+        theta_ex_ds_ts: 日付 d の時刻 t における外気温度 [8760], ℃
+        E_p_is_ds_ts: 日付 d の時刻 t における1時間当たりの太陽電池アレイ i の発電量 [i, 8760], kWh/h
 
     Returns:
-        Tuple: 出力値(E_E_PV_chg_d_t, E_E_PSS_h_d_t, E_E_PV_h_d_t, E_E_PV_sell_d_t)
+        計算結果
     """
 
-    bl = BatteryLogger(SC_d_t=SC_d_t, E_E_dmd_excl_d_t=E_E_dmd_excl_d_t, theta_ex_d_t=theta_ex_d_t, E_p_i_d_t=E_p_i_d_t)
-
-    # 系統からの電力供給の有無
-    # SC_d_t = get_SC_d_t(df)
-
-    # パワーコンディショナおよび蓄電設備の補機の消費電力量を除く電力需要
-    # E_E_dmd_excl_d_t = get_E_E_dmd_excl_d_t(df)
-
-    # 外気温度
-    # theta_ex_d_t = get_theta_ex_d_t(df)
+    bl = BatteryLogger(SC_d_t=SC_ds_ts, E_E_dmd_excl_d_t=E_E_dmd_excl_ds_ts, theta_ex_d_t=theta_ex_ds_ts, E_p_i_d_t=E_p_is_ds_ts)
 
     # 8.8 パワーコンディショナの仕様
 
@@ -1627,14 +1599,10 @@ def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> p
     
     # 12. 太陽光発電設備による発電量
 
-
-    # 太陽光発電設備による発電量 式(54)
-    eta_IN_R = get_eta_IN_R(spec)
-    K_IN = get_K_IN(eta_IN_R)
-    K_PM_i = get_K_PM_i(spec)
-    n = get_n(spec)
-    # E_p_i_d_t = get_E_p_i_d_t(df, n)
-    E_dash_dash_E_PV_gen_d_t = get_E_dash_dash_E_PV_gen_d_t(n, E_p_i_d_t, K_PM_i, K_IN)
+    # 太陽光発電設備による発電量 式(52)
+    K_IN = spec["K_IN"]
+    K_PM_is = get_K_PM_is(spec)
+    E_dash_dash_E_PV_gen_ds_ts = get_E_dash_dash_E_PV_gen_ds_ts(E_p_is_ds_ts=E_p_is_ds_ts, K_PM_is=K_PM_is, K_IN=K_IN)
 
 
     # 蓄電池の満充電容量
@@ -1686,7 +1654,7 @@ def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> p
     type_batt = get_type_batt(V_star_upper_batt, V_star_lower_batt)
 
     # 蓄電池モジュールの周囲温度
-    T_amb_bmdl_d_t = get_T_amb_bmdl_d_t(theta_ex_d_t)
+    T_amb_bmdl_d_t = get_T_amb_bmdl_d_t(theta_ex_ds_ts)
 
     # 1月1日0 時における蓄電池の充放電可能容量に対する放電可能容量の割合
     r_int_dchg_batt = get_r_int_dchg_batt(spec)
@@ -1698,7 +1666,7 @@ def calculate(spec: dict, SC_d_t, E_E_dmd_excl_d_t, theta_ex_d_t, E_p_i_d_t)-> p
     delta_tau_max_dchg_d_t = get_delta_tau_max_dchg_d_t()
 
     # 9.10 蓄電池モジュールの周囲温度
-    for dt, (SC, E_E_dmd_excl, E_dash_dash_E_PV_gen, T_amb_bmdl, C_fc, delta_tau_max_chg, delta_t_max_dchg) in enumerate(zip(SC_d_t, E_E_dmd_excl_d_t, E_dash_dash_E_PV_gen_d_t, T_amb_bmdl_d_t, C_fc_d_t, delta_tau_max_chg_d_t, delta_tau_max_dchg_d_t)):
+    for dt, (SC, E_E_dmd_excl, E_dash_dash_E_PV_gen, T_amb_bmdl, C_fc, delta_tau_max_chg, delta_t_max_dchg) in enumerate(zip(SC_ds_ts, E_E_dmd_excl_ds_ts, E_dash_dash_E_PV_gen_ds_ts, T_amb_bmdl_d_t, C_fc_d_t, delta_tau_max_chg_d_t, delta_tau_max_dchg_d_t)):
 
         # 蓄電池ユニットが放電を停止する充電率 式(44)
         SOC_star_min = get_SOC_star_min(SOC_star_lower, SOC_star_upper, r_LCP_batt, SC)
