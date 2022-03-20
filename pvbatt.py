@@ -5,6 +5,7 @@ import math
 from typing import Union, Tuple
 
 from battery_logger import BatteryLogger
+from battery import Battery
 
 # 5. 太陽光発電設備による発電量のうちの自家消費分・売電分・充電分および蓄電設備による放電量のうちの自家消費分
 
@@ -789,54 +790,6 @@ def get_E_dash_dash_E_SB_dchg(E_dash_dash_E_SB_sup: float) -> float:
 
 # 9.5.1 充電可能容量
 
-def get_C_oprt_chg(C_fc: float, SOC_star_max: float, SOC_star_min: float, C_oprt_dchg: float) -> float:
-    """蓄電池の充電可能容量 (Ah)
-
-    Args:
-        C_fc (float): 蓄電池の満充電容量 (Ah)
-        SOC_star_max (float): 蓄電池ユニットが充電を停止する充電率 (-)
-        SOC_star_min (float): 蓄電池ユニットが放電を停止する充電率 (-)
-        C_oprt_dchg (float): 蓄電池の放電可能容量 (Ah)
-
-    Returns:
-        float: 蓄電池の充電可能容量 (Ah)
-    """
-    return C_fc * (SOC_star_max - SOC_star_min) - C_oprt_dchg
-
-
-# 9.5.2 放電可能容量
-
-def get_C_oprt_dchg_0(C_fc: float, SOC_star_max: float, SOC_star_min: float, r_int_dchg_batt) -> float:
-    """1月1日0時に終える蓄電池による放電可能容量 (Ah)
-
-    Args:
-        C_fc (float): 蓄電池の満充電容量 (Ah)
-        SOC_star_max (float): 蓄電池ユニットが充電を停止する充電率 (-)
-        SOC_star_min (float): 蓄電池ユニットが放電を停止する充電率 (-)
-        r_int_dchg_batt (float): １月１日０時のおける蓄電池の充放電可能容量に対する放電可能容量の割合 (-)
-
-    Returns:
-        float: 1月1日0時に終える蓄電池による放電可能容量 (Ah)
-    """
-    #1月1日0時
-    return C_fc * (SOC_star_max - SOC_star_min) * r_int_dchg_batt
-
-def get_C_oprt_dchg(C_fc: float, SOC_st1_previoushour: float, SOC_star_min: float) -> float:
-    """蓄電池の放電可能容量 (Ah)
-
-    Args:
-        C_fc (float): 蓄電池の満充電容量 (Ah)
-        SOC_st1_previoushour (float): 前時間における蓄電池の放電可能容量 (Ah)
-        SOC_star_min (float): 蓄電池ユニットが放電を停止する充電率 (-)
-
-    Returns:
-        float: 蓄電池の放電可能容量 (Ah)
-    """
-    #1月1日1時以降
-    #※前時間の値を使うので注意が必要
-    return  C_fc * (SOC_st1_previoushour - SOC_star_min)
-
-
 def get_SOC_st0(SOC_star_min: float, C_oprt_dchg: float, C_fc: float) -> float:
     """蓄電池が状態0にある場合の蓄電池の充電率 (-)
 
@@ -975,19 +928,6 @@ def get_SOC_hat_st1(SOC_st0: float, C_fc: float, delta_t_chg: float, delta_t_dch
         return SOC_st0
 
 
-def get_R_intr(T_amb_bmdl: float, type_batt: int) -> float:
-    """蓄電池の内部抵抗 (Ω)
-
-    Args:
-        T_amb_bmdl (float): 蓄電池モジュールの周囲温度 (K)
-        type_batt (int): 蓄電池の種類 (-)
-
-    Returns:
-        float: 蓄電池の内部抵抗 (Ω)
-    """
-    return f_R_intr(T_amb_bmdl, type_batt)
-
-
 # 9.5.3 充電時間・放電時間
 
 
@@ -1031,86 +971,7 @@ def get_delta_tau_dchg(E_dash_dash_E_SB_chg: float, E_dash_dash_E_SB_dchg: float
         raise ValueError("E_dash_dash_E_SB_chg = {}, E_dash_dash_E_SB_dchg = {}".format(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg))
 
 
-# 9.6 制御
 
-
-def get_SOC_star_max(SOC_star_upper: float) -> float:
-    """蓄電池ユニットが充電を停止する充電率 (-)
-
-    Args:
-        SOC_star_upper (float): 蓄電池の上限電圧に対応する充電率 (-)
-
-    Returns:
-        float: 蓄電池ユニットが充電を停止する充電率 (-)
-    """
-    # 式(43)
-    SOC_star_max = SOC_star_upper
-    return SOC_star_max
-
-
-def get_SOC_star_min(SOC_star_lower: float, SOC_star_upper: float, r_LCP_batt: float, SC: bool) -> float:
-    """蓄電池ユニットが放電を停止する充電率 (-)
-
-    Args:
-        SOC_star_lower (float): 蓄電池の下限電圧に対応する充電率 (-)
-        SOC_star_upper (float): 蓄電池の上限電圧に対応する充電率 (-)
-        r_LCP_batt (float): 蓄電池の充放電可能容量に対する放電停止残容量の割合 (-)
-        SC (bool): 系統からの電力供給の有無
-
-    Returns:
-        float: 蓄電池ユニットが放電を停止する充電率 (-)
-    """
-    if SC:
-        # 系統連携運転時の場合 式(44-1)
-        return SOC_star_lower + r_LCP_batt * (SOC_star_upper - SOC_star_lower)
-    else:
-        # 独立運転時の場合 式(44-2)
-        return SOC_star_lower
-
-
-def get_C_fc_d_t(C_fc_rtd: float) -> np.ndarray:
-    """日付d時刻tにおける蓄電池の満充電容量 (Ah)
-
-    Args:
-        C_fc_rtd (float): 蓄電池の初期満充電容量 (Ah)
-
-    Returns:
-        ndarray: 日付d時刻tにおける蓄電池の満充電容量 (Ah)
-    """
-    C_fc_d_t = C_fc_rtd
-    return np.repeat(C_fc_d_t, 9760)
-
-
-def get_C_fc_rtd(W_rtd_batt: float, V_rtd_batt: float) -> float:
-    """蓄電池の初期満充電容量 (Ah)
-
-    Args:
-        W_rtd_batt (float): 蓄電池の定格容量 (kWh)
-        V_rtd_batt (float): 蓄電池の定格電圧 (V)
-
-    Returns:
-        float: 蓄電池の初期満充電容量 (Ah)
-    """
-    C_fc_rtd = W_rtd_batt * 1000 / V_rtd_batt
-    return C_fc_rtd
-
-
-
-# 9.7 内部抵抗を表す関数
-
-
-def f_R_intr(x_T_amb: float, x_type: type) -> float:
-    """蓄電池の内部抵抗を表す関数
-
-    Args:
-        x_T_amb (float): 関数の引数 (蓄電池モジュールの周囲温度) (K)
-        x_type (type): 関数の引数 (蓄電池の種類) (-)
-    
-    Returns:
-        float: 蓄電池の内部抵抗 (Ω)
-    """
-    R_intr = 0.5
-    return R_intr
 
 
 # 9.8 開回路電圧を表す関数
@@ -1241,104 +1102,6 @@ def get_K_6(x_T_amb, x_type):
     return -0.02122
 
 
-# 9.9 蓄電池ユニットの仕様
-
-def get_W_rtd_batt(spec: dict) -> float:
-    """蓄電池の定格容量 (kWh)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の定格容量 (kWh)
-    """
-    return spec['W_rtd_batt']
-
-
-def get_r_LCP_batt(spec: dict) -> float:
-    """蓄電池の充放電可能容量に対する放電停止残容量の割合 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の充放電可能容量に対する放電停止残容量の割合 (-)
-    """
-    return spec['r_LCP_batt']
-
-
-def get_V_rtd_batt(spec: dict) -> float:
-    """蓄電池の定格電圧 (V)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の定格電圧 (V)
-    """
-    return spec['V_rtd_batt']
-
-
-def get_V_star_lower_batt(spec: dict) -> float:
-    """蓄電池の下限電圧 (V)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の下限電圧 (V)
-    """
-    return spec['V_star_lower_batt']
-
-
-def get_V_star_upper_batt(spec: dict) -> float:
-    """蓄電池の上限電圧 (V)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の上限電圧 (V)
-    """
-    return spec['V_star_upper_batt']
-
-
-def get_SOC_star_lower(spec):
-    """蓄電池の下限電圧に対応する充電率 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の下限電圧に対応する充電率 (-)
-    """
-    return spec['SOC_star_lower']
-
-
-def get_SOC_star_upper(spec):
-    """蓄電池の上限電圧に対応する充電率 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 蓄電池の上限電圧に対応する充電率 (-)
-    """
-    return spec['SOC_star_upper']
-
-
-def get_r_int_dchg_batt(spec):
-    """1月1日0時のおける蓄電池の充放電可能容量に対する放電可能容量の割合 (-)
-
-    Args:
-        spec (dict): 機器仕様
-
-    Returns:
-        float: 1月1日0時のおける蓄電池の充放電可能容量に対する放電可能容量の割合 (-)
-    """
-    return spec['r_int_dchg_batt']
-
-
 def get_type_batt(V_star_upper_batt: float, V_star_lower_batt: float) -> int:
     """蓄電池の種類 (-)
 
@@ -1359,7 +1122,6 @@ def get_type_batt(V_star_upper_batt: float, V_star_lower_batt: float) -> int:
     else:
         return 1
 
-# 9.10 蓄電池モジュールの周囲温度
 
 
 def get_T_amb_bmdl_d_t(theta_ex_d_t: np.ndarray) -> np.ndarray:
@@ -1371,6 +1133,7 @@ def get_T_amb_bmdl_d_t(theta_ex_d_t: np.ndarray) -> np.ndarray:
     Returns:
         ndarray: 日付d時刻tにおける蓄電池モジュールの周囲温度 (K)
     """
+    # 9.10 蓄電池モジュールの周囲温度
     # 外気温度を用いて絶対温度に換算
     return get_T(theta_ex_d_t)
 
@@ -1604,12 +1367,10 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
     K_PM_is = get_K_PM_is(spec)
     E_dash_dash_E_PV_gen_ds_ts = get_E_dash_dash_E_PV_gen_ds_ts(E_p_is_ds_ts=E_p_is_ds_ts, K_PM_is=K_PM_is, K_IN=K_IN)
 
+    bt = Battery(spec=spec)
 
     # 蓄電池の満充電容量
-    W_rtd_batt = get_W_rtd_batt(spec)
-    V_rtd_batt = get_V_rtd_batt(spec)
-    C_fc_rtd = get_C_fc_rtd(W_rtd_batt, V_rtd_batt)
-    C_fc_d_t = get_C_fc_d_t(C_fc_rtd)
+    V_rtd_batt = bt.V_rtd_batt
 
     # 10.2 表示・計測・操作ユニット等の仕様
 
@@ -1623,41 +1384,11 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
 
     # 蓄電池ユニットの仕様
 
-    # 蓄電池の定格容量 [kWh]
-    W_rtd_batt = get_W_rtd_batt(spec)
-
-    # 蓄電池の充放電可能容量に対する放電天使残容量の割合 [-]
-    r_LCP_batt = get_r_LCP_batt(spec)
-
     # 蓄電池の定格電圧 [V]
-    V_rtd_batt = get_V_rtd_batt(spec)
+    V_rtd_batt = bt.V_rtd_batt
 
-    # 蓄電池の下限電圧 [V]
-    V_star_lower_batt = get_V_star_lower_batt(spec)
-
-    # 蓄電池の上限電圧 [V]
-    V_star_upper_batt = get_V_star_upper_batt(spec)
-
-    if V_star_lower_batt > V_star_upper_batt:
-        raise ValueError('V_star_upper_batt < V_star_lower_batt')
-
-    # 蓄電池の下限電圧に対応する充電率 (-)
-    SOC_star_lower = get_SOC_star_lower(spec)
-
-    # 蓄電池の上限電圧に対応する充電率 (-)
-    SOC_star_upper = get_SOC_star_upper(spec)
-
-    if SOC_star_lower > SOC_star_upper:
-        raise ValueError('SOC_star_lower > SOC_star_upper')
- 
     # 蓄電池の種類 (-)
-    type_batt = get_type_batt(V_star_upper_batt, V_star_lower_batt)
-
-    # 蓄電池モジュールの周囲温度
-    T_amb_bmdl_d_t = get_T_amb_bmdl_d_t(theta_ex_ds_ts)
-
-    # 1月1日0 時における蓄電池の充放電可能容量に対する放電可能容量の割合
-    r_int_dchg_batt = get_r_int_dchg_batt(spec)
+    type_batt = bt.type_batt
 
     # 蓄電池ユニットが最大充電可能電力量を充電する時間
     delta_tau_max_chg_d_t = get_delta_tau_max_chg_d_t()
@@ -1666,61 +1397,50 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
     delta_tau_max_dchg_d_t = get_delta_tau_max_dchg_d_t()
 
     # 9.10 蓄電池モジュールの周囲温度
-    for dt, (SC, E_E_dmd_excl, E_dash_dash_E_PV_gen, T_amb_bmdl, C_fc, delta_tau_max_chg, delta_t_max_dchg) in enumerate(zip(SC_ds_ts, E_E_dmd_excl_ds_ts, E_dash_dash_E_PV_gen_ds_ts, T_amb_bmdl_d_t, C_fc_d_t, delta_tau_max_chg_d_t, delta_tau_max_dchg_d_t)):
+    for n, (SC_d_t, E_E_dmd_excl, E_dash_dash_E_PV_gen, delta_tau_max_chg, delta_t_max_dchg) in enumerate(zip(SC_ds_ts, E_E_dmd_excl_ds_ts, E_dash_dash_E_PV_gen_ds_ts, delta_tau_max_chg_d_t, delta_tau_max_dchg_d_t)):
+        
+        # 蓄電池モジュールの周囲温度
+        T_amb_bmdl_d_t = bt.get_T_amb_bmdl_d_t(theta_ex_d_t=theta_ex_ds_ts[n])
 
         # 蓄電池ユニットが放電を停止する充電率 式(44)
-        SOC_star_min = get_SOC_star_min(SOC_star_lower, SOC_star_upper, r_LCP_batt, SC)
-
-        if SOC_star_min < 0:
-            raise ValueError('SOC_star_min < 0')
+        SOC_star_min_d_t = bt.get_SOC_star_min_d_t(SC_d_t=SC_d_t)
 
         # 蓄電池ユニットが充電を停止する充電率 式(43)
-        SOC_star_max = get_SOC_star_max(SOC_star_upper)
+        SOC_star_max_d_t = bt.get_SOC_star_max_d_t()
 
-        if SOC_star_min > SOC_star_max:
-            raise ValueError('SOC_star_min > SOC_star_max')
+        # 日付 d 時刻 t における蓄電池の満充電容量, Ah
+        C_fc_d_t = bt.get_C_fc_d_t()
 
-        # 放電可能容量 式(35)
-        if dt == 0:
-            # 1月1日0時の放電可能容量 式(35-1)
-            C_oprt_dchg = get_C_oprt_dchg_0(C_fc, SOC_star_max, SOC_star_min, r_int_dchg_batt)
-        else:
-            # 1月1日1時以降の放電可能容量 式(35-2)
-            C_oprt_dchg = get_C_oprt_dchg(C_fc, SOC_st1, SOC_star_min)
+        # 放電可能容量, Ah 式(35)
+        C_oprt_dchg_d_t = bt.get_C_oprt_dchg_d_t(C_fc_d_t=C_fc_d_t, SOC_star_min_d_t=SOC_star_min_d_t)
 
         # 蓄電池の充電可能容量 (Ah) 式(34)
-        C_oprt_chg = get_C_oprt_chg(C_fc, SOC_star_max, SOC_star_min, C_oprt_dchg)
+        C_oprt_chg_d_t = bt.get_C_oprt_chg_d_t(C_fc_d_t=C_fc_d_t, SOC_star_max_d_t=SOC_star_max_d_t)
 
+        # 状態0にある場合の充電池の充電率 式(36-1)
+        SOC_st0 =  bt.get_SOC_st0()
 
+        # 蓄電池の内部抵抗 式(40)
+        R_intr_d_t = bt.get_R_intr_d_t(T_amb_bmdl_d_t=T_amb_bmdl_d_t)
 
         # 9.1 最大充電可能電力量
 
         # 蓄電池ユニットが最大充電可能電力量を充電する時の電流 式(28)
-        I_max_chg = get_I_max_chg(C_oprt_chg, delta_tau_max_chg)
-
-        # 蓄電池の内部抵抗 式(40)
-        R_intr = get_R_intr(T_amb_bmdl, type_batt)
-
-        # 状態0にある場合の充電池の充電率 式(36-1)
-        SOC_st0 =  get_SOC_st0(SOC_star_min, C_oprt_dchg, C_fc)
+        I_max_chg = get_I_max_chg(C_oprt_chg_d_t, delta_tau_max_chg)
 
         # 蓄電池ユニットが最大充電可能電力量を充電する時の電圧 式(27)
-        V_max_chg = get_V_max_chg(SOC_st0, SOC_star_max, T_amb_bmdl, type_batt, V_rtd_batt, I_max_chg, R_intr)
+        V_max_chg = get_V_max_chg(SOC_st0, SOC_star_max_d_t, T_amb_bmdl_d_t, type_batt, V_rtd_batt, I_max_chg, R_intr_d_t)
 
         # 蓄電池ユニットによる最大充電可能電力量 (kWh/h) 式(26)
         E_dash_dash_E_SB_max_chg = get_E_dash_dash_E_SB_max_chg(I_max_chg, V_max_chg, delta_tau_max_chg)
 
         # 9.5.1 充電可能容量
 
-        # 放電可能容量 式(35-2)
-        C_oprt_chg = get_C_oprt_chg(C_fc, SOC_star_max, SOC_star_min, C_oprt_dchg)
-
-
         # 蓄電池ユニットが最大放電可能電力量を放電する時の電流 式(31)
-        I_max_dchg = get_I_max_dchg(C_oprt_dchg, delta_t_max_dchg)
+        I_max_dchg = get_I_max_dchg(C_oprt_dchg_d_t, delta_t_max_dchg)
 
         # 蓄電池ユニットが最大放電可能電力量を放電する時の電圧 式(30)
-        V_max_dchg = get_V_max_dchg(SOC_st0, SOC_star_min, T_amb_bmdl, type_batt, V_rtd_batt, I_max_dchg, R_intr)
+        V_max_dchg = get_V_max_dchg(SOC_st0, SOC_star_min_d_t, T_amb_bmdl_d_t, type_batt, V_rtd_batt, I_max_dchg, R_intr_d_t)
 
         # 蓄電池ユニットによる最大放電可能電力量 式(29)
         E_dash_dash_E_SB_max_dchg = get_E_dash_dash_E_SB_max_dchg(I_max_dchg, V_max_dchg, delta_t_max_dchg)
@@ -1801,20 +1521,20 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         # 5. 太陽光発電設備による発電量のうちの自家消費分・売電分・充電分および蓄電設備による放電量のうちの自家消費分
 
         # 太陽光発電設備による発電量のうちの自家消費分 式(1)
-        E_E_PV_h = get_E_E_PV_h(E_E_srpl, E_E_PV_max_sup, E_E_dmd_incl, SC)
+        E_E_PV_h = get_E_E_PV_h(E_E_srpl, E_E_PV_max_sup, E_E_dmd_incl, SC_d_t)
 
         # 太陽光発電設備による発電量のうちの充電分の分電盤側における換算値 式(3)
-        E_E_PV_chg = get_E_E_PV_chg(E_E_srpl, E_E_SB_max_chg, SC)
+        E_E_PV_chg = get_E_E_PV_chg(E_E_srpl, E_E_SB_max_chg, SC_d_t)
 
 
         # 太陽光発電設備による発電量のうちの充電分 式(9)
         E_dash_dash_E_PV_chg = get_E_dash_dash_E_PV_chg(E_E_PV_chg, E_dash_dash_E_srpl, E_E_srpl, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
 
         # 太陽光発電設備による発電量のうちの売電分 式(2)
-        E_E_PV_sell = get_E_E_PV_sell(E_E_srpl, E_E_PV_chg, SC)
+        E_E_PV_sell = get_E_E_PV_sell(E_E_srpl, E_E_PV_chg, SC_d_t)
 
         # 蓄電設備による放電量のうちの自家消費分 式(4)
-        E_E_PSS_h = get_E_E_PSS_h(E_E_srpl, E_E_dmd_incl, E_E_PSS_max_sup, E_E_PV_h, SC)
+        E_E_PSS_h = get_E_E_PSS_h(E_E_srpl, E_E_dmd_incl, E_E_PSS_max_sup, E_E_PV_h, SC_d_t)
 
 
         # 蓄電池ユニットによる放電量のうちの供給分の分電盤側における換算値 式(11b)
@@ -1842,55 +1562,58 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         delta_t_dchg = get_delta_tau_dchg(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg)
 
         # 蓄電池が状態1にある場合の蓄電池の充電率の仮値 式(39c)
-        SOC_hat_st1 =  get_SOC_hat_st1(SOC_st0, C_fc, delta_t_chg, delta_t_dchg, V_rtd_batt, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg)
+        SOC_hat_st1 =  get_SOC_hat_st1(SOC_st0, C_fc_d_t, delta_t_chg, delta_t_dchg, V_rtd_batt, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg)
 
         # 蓄電池の開回路電圧 式(39a)
-        V_OC = get_V_OC(SOC_st0, SOC_hat_st1, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, T_amb_bmdl, type_batt, V_rtd_batt)
+        V_OC = get_V_OC(SOC_st0, SOC_hat_st1, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, T_amb_bmdl_d_t, type_batt, V_rtd_batt)
 
         # 充電に対する蓄電池の電流 式(37)
-        I_chg = get_I_chg(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, V_OC, R_intr)
+        I_chg = get_I_chg(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, V_OC, R_intr_d_t)
 
         # 放電に対する蓄電池の電流 式(38)
-        I_dchg = get_I_dchg(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, V_OC, R_intr)
+        I_dchg = get_I_dchg(E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg, V_OC, R_intr_d_t)
         
         # 状態1にある場合の充電池の充電率 式(36-2)
-        SOC_st1 =  get_SOC_st1(SOC_st0, SOC_star_max, SOC_star_min, I_chg, I_dchg, delta_t_chg, delta_t_dchg, C_fc, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg)
+        SOC_st1 =  get_SOC_st1(SOC_st0, SOC_star_max_d_t, SOC_star_min_d_t, I_chg, I_dchg, delta_t_chg, delta_t_dchg, C_fc_d_t, E_dash_dash_E_SB_chg, E_dash_dash_E_SB_dchg)
         #print('SOC_st1={}, SOC_star_min={}, SOC_star_max={}'.format(SOC_st1, SOC_star_min, SOC_star_max))
 
+        # 次の時刻で使用するために蓄電池の充電率を書き換える。
+        bt.SOC_st1 = SOC_st1
+
         # (1)
-        bl.E_E_PV_h_d_t[dt] = E_E_PV_h
+        bl.E_E_PV_h_d_t[n] = E_E_PV_h
         # (2)
-        bl.E_E_PV_sell_d_t[dt] = E_E_PV_sell
+        bl.E_E_PV_sell_d_t[n] = E_E_PV_sell
         # (3)
-        bl.E_E_PV_chg_d_t[dt] = E_E_PV_chg
+        bl.E_E_PV_chg_d_t[n] = E_E_PV_chg
         # (4)
-        bl.E_E_PSS_h_d_t[dt] = E_E_PSS_h
+        bl.E_E_PSS_h_d_t[n] = E_E_PSS_h
         # (5)
-        bl.E_E_PSS_max_sup_d_t[dt] = E_E_PSS_max_sup
+        bl.E_E_PSS_max_sup_d_t[n] = E_E_PSS_max_sup
         # (6)
-        bl.E_E_srpl_d_t[dt] = E_E_srpl
+        bl.E_E_srpl_d_t[n] = E_E_srpl
         # (7)
-        bl.E_E_dmd_incl_d_t[dt] = E_E_dmd_incl
+        bl.E_E_dmd_incl_d_t[n] = E_E_dmd_incl
         # (8)
-        bl.E_E_aux_PSS_d_t[dt] = E_E_aux_PSS
+        bl.E_E_aux_PSS_d_t[n] = E_E_aux_PSS
         # (9a)
-        bl.E_dash_dash_E_PV_chg_d_t[dt] = E_dash_dash_E_PV_chg
+        bl.E_dash_dash_E_PV_chg_d_t[n] = E_dash_dash_E_PV_chg
         # (10)
-        bl.E_dash_dash_E_srpl_d_t[dt] = E_dash_dash_E_srpl
+        bl.E_dash_dash_E_srpl_d_t[n] = E_dash_dash_E_srpl
         # (11)
-        bl.E_dash_dash_E_SB_sup_d_t[dt] = E_dash_dash_E_SB_sup
+        bl.E_dash_dash_E_SB_sup_d_t[n] = E_dash_dash_E_SB_sup
         # (12)
-        bl.E_E_PV_max_sup_d_t[dt] = E_E_PV_max_sup
+        bl.E_E_PV_max_sup_d_t[n] = E_E_PV_max_sup
         # (13)
-        bl.E_E_SB_max_sup_d_t[dt] = E_E_SB_max_sup
+        bl.E_E_SB_max_sup_d_t[n] = E_E_SB_max_sup
         # (14)
-        bl.E_dash_dash_E_PV_max_sup_d_t[dt] = E_dash_dash_E_PV_max_sup
+        bl.E_dash_dash_E_PV_max_sup_d_t[n] = E_dash_dash_E_PV_max_sup
         # (15)
-        bl.E_dash_dash_E_SB_max_sup_d_t[dt] = E_dash_dash_E_SB_max_sup
+        bl.E_dash_dash_E_SB_max_sup_d_t[n] = E_dash_dash_E_SB_max_sup
         # (16)
-        bl.E_E_SB_max_chg_d_t[dt] = E_E_SB_max_chg
+        bl.E_E_SB_max_chg_d_t[n] = E_E_SB_max_chg
         # (25)
-        bl.E_E_aux_PCS_d_t[dt] = E_E_aux_PCS
+        bl.E_E_aux_PCS_d_t[n] = E_E_aux_PCS
 
 
     output_data = pd.DataFrame(

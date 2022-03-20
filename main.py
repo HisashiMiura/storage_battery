@@ -113,7 +113,7 @@ def calc_with_pvbatt(spec: Dict, pvbatt_spec: Dict):
 
     output_data.to_csv("output.csv", index=False, encoding="SHIFT-JIS")
 
-    return e
+    return e, output_data
 
 
 if __name__ == '__main__':
@@ -239,7 +239,11 @@ if __name__ == '__main__':
 
     #  e = calc_total_energy(spec=spec)
 
-    e = calc_with_pvbatt(spec=spec, pvbatt_spec=pvbatt_spec)
+    e, eb = calc_with_pvbatt(spec=spec, pvbatt_spec=pvbatt_spec)
 
     e.get_df().to_csv("energy_output.csv", index=False, encoding="SHIFT-JIS")
 
+    print("E_E_PV_h(1735.0): " + str(round(np.sum(eb["E_E_PV_h"].values))))
+    print("E_E_PV_sell(269.0): " + str(round(np.sum(eb["E_E_PV_sell"].values))))
+    print("E_E_PV_chg(2157.0): " + str(round(np.sum(eb["E_E_PV_chg"].values))))
+    print("E_E_PSS_h(890.0): " + str(round(np.sum(eb["E_E_PSS_h"].values))))
