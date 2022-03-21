@@ -6,6 +6,7 @@ from typing import Union, Tuple
 
 from battery_logger import BatteryLogger
 from battery import Battery
+from power_conditioner import PowerConditioner
 
 # 5. 太陽光発電設備による発電量のうちの自家消費分・売電分・充電分および蓄電設備による放電量のうちの自家消費分
 
@@ -573,22 +574,6 @@ def f_E_in(x_E_out: float, x_E_in_rtd: float, x_a: float, x_b: float) -> float:
 # 8.7 補機の消費電力量
 
 
-def get_E_E_aux_PCS(P_aux_PCS_oprt: float, tau_oprt_PSS: float, P_aux_PCS_stby: float) -> float:
-    """1時間当たりのパワーコンディショナの補機の消費電力量 (kWh/h)
-
-    Args:
-        P_aux_PCS_oprt (float): 作動時におけるパワーコンディショナの補機の消費電力 (W)
-        tau_oprt_PSS (float): 1時間当たりの蓄電設備の作動時間数 (h/h)
-        P_aux_PCS_stby (float): 待機時におけるパワーコンディショナの補機の消費電力 (W)
-
-    Returns:
-        float: 1時間当たりのパワーコンディショナの補機の消費電力量 (kWh/h)
-    """
-    E_E_aux_PCS_d_t = \
-        (P_aux_PCS_oprt * tau_oprt_PSS + P_aux_PCS_stby * (1.0 - tau_oprt_PSS)) / 1000
-    return E_E_aux_PCS_d_t
-
-
 # 8.8 パワーコンディショナの仕様
 
 def get_PCS_spec(spec: dict) -> Tuple:
@@ -615,79 +600,6 @@ def get_PCS_spec(spec: dict) -> Tuple:
         spec['beta_SBtoDB'], \
         spec['P_aux_PCS_oprt'], \
         spec['P_aux_PCS_stby']
-
-
-def get_E_E_aux_others(P_aux_others_oprt: float, tau_oprt_PSS: float, P_aux_others_stby: float) -> float:
-    """1時間当たりの表示・計測・操作ユニット等の消費電力量 (kWh/h)
-
-    Args:
-        P_aux_others_oprt (float): 作動時における表示・計測・操作ユニット等の消費電力 (W)
-        tau_oprt_PSS (float): 1時間当たりの蓄電設備の作動時間数 (h/h)
-        P_aux_others_stby (float): 待機時における表示・計測・操作ユニット等の消費電力 (W)
-
-    Returns:
-        float: 1時間当たりの表示・計測・操作ユニット等の消費電力量 (kWh/h)
-    """
-    return (P_aux_others_oprt * tau_oprt_PSS + P_aux_others_stby * (1 - tau_oprt_PSS)) / 1000
-
-
-# 10.2 表示・計測・操作ユニット等の仕様
-
-
-def get_table_6() -> dict:
-    """表 6 表示・計測・操作ユニット等の仕様
-
-    Returns:
-        dict: 表 6 表示・計測・操作ユニット等の仕様
-    """
-    return {
-        # 作動時における表示・計測・操作ユニット等の消費電力
-        'P_aux_others_oprt': 3.0,
-        # 待機時における表示・計測・操作ユニット等の消費電力
-        'P_aux_others_stby': 2.0
-    }
-
-def get_P_aux_others_oprt() -> float:
-    """作動時における表示・計測・操作ユニット等の消費電力 (W)
-
-    Returns:
-        float: 作動時における表示・計測・操作ユニット等の消費電力 (W)
-    """
-    return get_table_6()['P_aux_others_oprt']
-
-
-def get_P_aux_others_stby() -> float:
-    """待機時における表示・計測・操作ユニット等の消費電力 (W)
-
-    Returns:
-        float: 待機時における表示・計測・操作ユニット等の消費電力 (W)
-    """
-    return get_table_6()['P_aux_others_stby']
-
-
-# 11. 蓄電設備の作動時間数
-
-
-def get_tau_oprt_PSS(E_dash_dash_E_PV_gen: float, E_E_dmd_excl: float, E_dash_dash_E_SB_max_dchg: float) -> float:
-    """ 1時間当たりの蓄電設備の作動時間数
-
-    Args:
-        E_dash_dash_E_PV_gen (float): 1 時間当たりの太陽光発電設備による発電量 (kWh/h)
-        E_E_dmd_excl (float): 1 時間当たりのパワーコンディショナおよび蓄電池ユニットの補機の消費電力量を除く電力需要 (kWh/h)
-        E_dash_dash_E_SB_max_dchg (float): 蓄電池ユニットによる最大放電可能電力量 (kWh/h)
-
-    Returns:
-        float: 1時間当たりの蓄電設備の作動時間数 [h]
-    """
-    if E_dash_dash_E_PV_gen > 0:
-        # 太陽光発電設備による発電が行われている場合
-        return 1.0
-    else:
-        # 太陽光発電設備による発電が行われていない場合
-        if E_E_dmd_excl > 0 and E_dash_dash_E_SB_max_dchg > 0:
-            return 1.0
-        else:
-            return 0.0
 
 
 # 12. 太陽光発電設備による発電量
@@ -730,8 +642,9 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
 
     E_dash_dash_E_in_rtd_PVtoDB, eta_ce_lim_PVtoDB, alpha_PVtoDB, beta_PVtoDB, \
     E_dash_dash_E_in_rtd_PVtoSB, eta_ce_lim_PVtoSB, alpha_PVtoSB, beta_PVtoSB, \
-    E_dash_dash_E_in_rtd_SBtoDB, eta_ce_lim_SBtoDB, alpha_SBtoDB, beta_SBtoDB, \
-    P_aux_PCS_oprt, P_aux_PCS_stby = get_PCS_spec(spec)
+    E_dash_dash_E_in_rtd_SBtoDB, eta_ce_lim_SBtoDB, alpha_SBtoDB, beta_SBtoDB, _, _ = get_PCS_spec(spec)
+
+    pc = PowerConditioner(spec=spec)
     
     # 12. 太陽光発電設備による発電量
 
@@ -742,17 +655,11 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
 
     bt = Battery(spec=spec)
 
-    # 10.2 表示・計測・操作ユニット等の仕様
-
-    # 作動時における表示・計測・操作ユニット等の消費電力
-    P_aux_others_oprt = get_P_aux_others_oprt()
-
-    # 待機時における表示・計測・操作ユニット等の消費電力
-    P_aux_others_stby = get_P_aux_others_stby()
-
-    for n, (SC_d_t, E_E_dmd_excl, E_dash_dash_E_PV_gen) in enumerate(zip(SC_ds_ts, E_E_dmd_excl_ds_ts, E_dash_dash_E_PV_gen_ds_ts)):
+    for n in range(8760):
         
         SC_d_t = SC_ds_ts[n]
+        E_E_dmd_excl = E_E_dmd_excl_ds_ts[n]
+        E_dash_dash_E_PV_gen = E_dash_dash_E_PV_gen_ds_ts[n]
 
         # 蓄電池ユニットによる最大充放電可能電力量, kWh/h
         E_dash_dash_E_SB_max_chg_d_t, E_dash_dash_E_SB_max_dchg_d_t = bt.calc_E_dash_dash_E_SB_max_d_t(theta_ex_d_t=theta_ex_ds_ts[n], SC_d_t=SC_ds_ts[n])
@@ -760,19 +667,19 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         # 11. 蓄電設備の作動時間数
 
         # 蓄電設備の作動時間数 式(53)
-        tau_oprt_PSS = get_tau_oprt_PSS(E_dash_dash_E_PV_gen, E_E_dmd_excl, E_dash_dash_E_SB_max_dchg_d_t)
+        tau_oprt_PSS_d_t = pc.get_tau_oprt_PSS_d_t(E_dash_dash_E_PV_gen_d_t=E_dash_dash_E_PV_gen, E_E_dmd_excl_d_t=E_E_dmd_excl, E_dash_dash_E_SB_max_dchg_d_t=E_dash_dash_E_SB_max_dchg_d_t)
 
         # 8.7 補機の消費電力量
 
-        E_E_aux_PCS = get_E_E_aux_PCS(P_aux_PCS_oprt, tau_oprt_PSS, P_aux_PCS_stby)
+        E_E_aux_PCS_d_t = pc.get_E_E_aux_PCS_d_t(tau_oprt_PSS_d_t=tau_oprt_PSS_d_t)
 
         # 表示・計測・操作ユニット等の消費電力量 式(52)
-        E_E_aux_others = get_E_E_aux_others(P_aux_others_oprt, tau_oprt_PSS, P_aux_others_stby)
+        E_E_aux_others_d_t = pc.get_E_E_aux_others_d_t(tau_oprt_PSS_d_t=tau_oprt_PSS_d_t)
 
         # 7. 補機の消費電力
 
         # 蓄電設備の補機の消費電力量 式(8)
-        E_E_aux_PSS = get_E_E_aux_PSS(E_E_aux_PCS, E_E_aux_others)
+        E_E_aux_PSS = get_E_E_aux_PSS(E_E_aux_PCS_d_t, E_E_aux_others_d_t)
 
         # 蓄電池ユニットによる最大供給可能電力量 式(15)
         E_dash_dash_E_SB_max_sup = get_E_dash_dash_E_SB_max_sup(E_dash_dash_E_SB_max_dchg_d_t)
@@ -869,7 +776,7 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         # (16)
         bl.E_E_SB_max_chg_d_t[n] = E_E_SB_max_chg
         # (25)
-        bl.E_E_aux_PCS_d_t[n] = E_E_aux_PCS
+        bl.E_E_aux_PCS_d_t[n] = E_E_aux_PCS_d_t
 
 
     output_data = pd.DataFrame(
