@@ -135,61 +135,6 @@ def get_E_E_PSS_h(E_E_srpl: float, E_E_dmd_incl: float, E_E_PSS_max_sup: float, 
 # 6. 最大供給可能電力量および余剰電力量
 
 
-def get_E_E_PSS_max_sup(E_E_PV_max_sup: float, E_E_SB_max_sup: float) -> float:
-    """1時間当たりの蓄電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-
-    Args:
-        E_E_PV_max_sup (float): 1時間当たりの太陽光発電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-        E_E_SB_max_sup (float): 1時間当たりの蓄電池ユニットによる最大供給可能電力量の分電盤側における換算値 (kWh/h)
-
-    Returns:
-        float: 1時間当たりの蓄電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-    """
-    return E_E_PV_max_sup + E_E_SB_max_sup
-
-
-def get_E_E_srpl(E_E_PV_max_sup: float, E_E_dmd_incl: float) -> float:
-    """ 1 時間当たりの余剰電力量 (kWh/h)
-
-    Args:
-        E_E_PV_max_sup (float): 1時間当たりの太陽光発電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-        E_E_dmd_incl (float): 1 時間当たりの蓄電設備の補機の消費電力量を含む電力需要 (kWh/h)
-
-    Returns:
-        float:  1 時間当たりの余剰電力量 (kWh/h)
-    """
-    return max(E_E_PV_max_sup - E_E_dmd_incl, 0)
-
-
-def get_E_E_dmd_incl(E_E_dmd_excl: float, E_E_aux_PSS: float) -> float:
-    """1 時間当たりの蓄電設備の補機の消費電力量を含む電力需要 (kWh/h)
-
-    Args:
-        E_E_dmd_excl (float): 1時間当たりの蓄電設備の補機の消費電力量を除く電力需要 (kWh/h)
-        E_E_aux_PSS (float): １時間あたりの蓄電設備の補機の消費電力量 (kWh/h)
-
-    Returns:
-        float: 1 時間当たりの蓄電設備の補機の消費電力量を含む電力需要 (kWh/h)
-    """
-    return E_E_dmd_excl + E_E_aux_PSS
-
-
-# 7. 補機の消費電力
-
-
-def get_E_E_aux_PSS(E_E_aux_PCS: float, E_E_aux_others: float) -> float:
-    """１時間あたりの蓄電設備の補機の消費電力量 (kWh/h)
-
-    Args:
-        E_E_aux_PCS (float): 1時間当たりのパワーコンディショナの補機の消費電力量 (kWh/h)
-        E_E_aux_others (float): 1時間当たりの表示・計測・操作ユニット等の消費電力量 (kWh/h)
-
-    Returns:
-        float: １時間あたりの蓄電設備の補機の消費電力量 (kWh/h)
-    """
-    return E_E_aux_PCS + E_E_aux_others
-
-
 # 8. パワーコンディショナ（ハイブリット一体型）
 
 
@@ -272,68 +217,6 @@ def get_E_E_SB_sup(E_E_PSS_h: float) -> float:
 # 8.4 最大供給可能電力量の分電盤側における換算値
 
 
-def get_E_E_PV_max_sup(E_dash_dash_E_PV_max_sup: float, E_dash_dash_E_in_rtd_PVtoDB: float, alpha_PVtoDB: float, beta_PVtoDB: float, eta_ce_lim_PVtoDB: float) -> float:
-    """1時間当たりの太陽光発電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-
-    Args:
-        E_dash_dash_E_PV_max_sup (float): 1時間当たりの太陽光発電設備による最大供給可能電力量 (kWh/h)
-        E_dash_dash_E_in_rtd_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの太陽光発電設備側における定格入力電力量 (kWh/h)
-        alpha_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-
-    Returns:
-        float: 1時間当たりの太陽光発電設備による最大供給可能電力量の分電盤側における換算値 (kWh/h)
-    """
-    if E_dash_dash_E_PV_max_sup > 0:
-        return f_E_out_PVtoDB(E_dash_dash_E_PV_max_sup, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB, eta_ce_lim_PVtoDB)
-    else:
-        return 0.0
-
-
-def get_E_E_SB_max_sup(E_dash_dash_E_SB_max_sup: float, E_dash_dash_E_in_rtd_SBtoDB: float, alpha_SBtoDB: float, beta_SBtoDB: float, eta_ce_lim_SBtoDB: float) -> float:
-    """1時間当たりの蓄電池ユニットによる最大供給可能電力量の分電盤側における換算値 (kWh/h)
-
-    Args:
-        E_dash_dash_E_SB_max_sup (float): 1時間当たりの蓄電池ユニットによる最大供給可能電力量 (kWh/h)
-        E_dash_dash_E_in_rtd_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における定格入力電力量 (kWh/h)
-        alpha_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-
-    Returns:
-        float: 1時間当たりの蓄電池ユニットによる最大供給可能電力量の分電盤側における換算値 (kWh/h)
-    """
-    if E_dash_dash_E_SB_max_sup > 0:
-        return f_E_out_SBtoDB(E_dash_dash_E_SB_max_sup, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB, eta_ce_lim_SBtoDB)
-    else:
-        return 0.0
-
-
-def get_E_dash_dash_E_PV_max_sup(E_dash_dash_E_PV_gen: float) -> float:
-    """1時間当たりの太陽光発電設備による最大供給可能電力量 (kWh/h)
-
-    Args:
-        E_dash_dash_E_PV_gen (float): 1 時間当たりの太陽光発電設備による発電量 (kWh/h)
-
-    Returns:
-        float: 1時間当たりの太陽光発電設備による最大供給可能電力量 (kWh/h)
-    """
-    return E_dash_dash_E_PV_gen
-
-
-def get_E_dash_dash_E_SB_max_sup(E_dash_dash_E_SB_max_dchg: float) -> float:
-    """1時間当たりの蓄電池ユニットによる最大供給可能電力量 (kWh/h)
-
-    Args:
-        E_dash_dash_E_SB_max_dchg (float): 蓄電池ユニットによる最大放電可能電力量 (kWh/h)
-
-    Returns:
-        float: 1時間当たりの蓄電池ユニットによる最大供給可能電力量 (kWh/h)
-    """
-    return E_dash_dash_E_SB_max_dchg
-
-
 # 8.5 最大充電可能電力量の分電盤側における換算値
 
 
@@ -363,41 +246,6 @@ def get_E_E_SB_max_chg(E_dash_dash_E_SB_max_chg: float, E_E_srpl: float, E_dash_
 # 8.6.1 太陽光発電設備から分電盤へ電力を送る場合
 
 
-def f_E_out_PVtoDB(x_E_in: float, E_dash_dash_E_in_rtd_PVtoDB: float, alpha_PVtoDB: float, beta_PVtoDB: float, eta_ce_lim_PVtoDB: float) -> float:
-    """太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの太陽光発電設備側における入力電力量から分電盤側における出力電力量を求める関数
-
-    Args:
-        x_E_in (float): 関数の引数(入力電力量) (kWh/h)
-        E_dash_dash_E_in_rtd_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの太陽光発電設備側における定格入力電力量 (kWh/h)
-        alpha_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-    
-    Returns:
-        float: 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの分電盤側における出力電力量 (kWh/h)
-    """
-    eta_ce_PVtoDB = get_eta_ce_PVtoDB(x_E_in, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB, eta_ce_lim_PVtoDB)
-    return eta_ce_PVtoDB * min(x_E_in, E_dash_dash_E_in_rtd_PVtoDB)
-
-
-def get_eta_ce_PVtoDB(x_E_in: float, E_dash_dash_E_in_rtd_PVtoDB: float, alpha_PVtoDB: float, beta_PVtoDB: float, eta_ce_lim_PVtoDB: float) -> float:
-    """太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率 (-)
-
-    Args:
-        x_E_in (float): 関数の引数(入力電力量) (kWh/h)
-        E_dash_dash_E_in_rtd_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの太陽光発電設備側における定格入力電力量 (kWh/h)
-        alpha_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_PVtoDB (float): 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-
-    Returns:
-        float: 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの合成変換効率 (-)
-    """
-    eta_ce_PVtoDB = \
-        f_eta_ec(x_E_in, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB, eta_ce_lim_PVtoDB)
-    return eta_ce_PVtoDB
-
-
 def f_E_dash_dash_in_PVtoDB(x_E_out: float, E_dash_dash_E_in_rtd_PVtoDB: float, alpha_PVtoDB: float, beta_PVtoDB: float) -> float:
     """太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における出力電力量から太陽光発電設備側における入力電力量を逆算する関数
     
@@ -410,7 +258,7 @@ def f_E_dash_dash_in_PVtoDB(x_E_out: float, E_dash_dash_E_in_rtd_PVtoDB: float, 
     Returns:
         float: 太陽光発電設備から分電盤へ電力を送る場合のパワーコンディショナの太陽光発電設備側における入力電力量 (kWh/h)
     """
-    return f_E_in(x_E_out, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB)
+    return PowerConditioner.f_E_in(x_E_out, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB)
 
 
 # 8.6.2 太陽光発電設備から蓄電池ユニットへ電力を送る場合
@@ -452,7 +300,7 @@ def get_eta_ce_PVtoSB(x_E_in: float, E_dash_dash_E_in_rtd_PVtoSB: float, alpha_P
         float: 太陽光発電設備から蓄電池ユニットへ電力を送る場合のパワーコンディショナの合成変換効率 (-)
     """
     eta_ce_PVtoSB = \
-        f_eta_ec(x_E_in, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
+        PowerConditioner.f_eta_ec(x_E_in, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
     return eta_ce_PVtoSB
 
 
@@ -468,45 +316,7 @@ def f_E_dash_dash_in_PVtoSB(x_E_out: float, E_dash_dash_E_in_rtd_PVtoSB: float, 
     Returns:
         float: 太陽光発電設備から蓄電池ユニットへ電力を送る場合のパワーコンディショナの太陽光発電設備側における入力電力量 (kWh/h)
     """
-    return f_E_in(x_E_out, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB)
-
-
-# 8.6.3 蓄電池ユニットから分電盤へ電力を送る場合
-
-
-def f_E_out_SBtoDB(x_E_in: float, E_dash_dash_E_in_rtd_SBtoDB: float, alpha_SBtoDB: float, beta_SBtoDB: float, eta_ce_lim_SBtoDB: float) -> float:
-    """蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における入力電力量から分電盤側における出力電力量を求める関数
-
-    Args:
-        x_E_in (float): 関数の引数(入力電力量) (kWh/h)
-        E_dash_dash_E_in_rtd_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における定格入力電力量 (kWh/h)
-        alpha_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-
-    Returns:
-        float: 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの分電盤側における出力電力量 (kWh/h)
-    """
-    eta_ce_SBtoDB = get_eta_ce_SBtoDB(x_E_in, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB, eta_ce_lim_SBtoDB)
-    return eta_ce_SBtoDB * min(x_E_in, E_dash_dash_E_in_rtd_SBtoDB)
-
-
-def get_eta_ce_SBtoDB(x_E_in: float, E_dash_dash_E_in_rtd_SBtoDB: float, alpha_SBtoDB: float, beta_SBtoDB: float, eta_ce_lim_SBtoDB: float) -> float:
-    """蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率 (-)
-
-    Args:
-        x_E_in (float): 関数の引数(入力電力量) (kWh/h)
-        E_dash_dash_E_in_rtd_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における定格入力電力量 (kWh/h)
-        alpha_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の傾き (-)
-        beta_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率を求める回帰式の切片 (-)
-        eta_ce_lim_SBtoDB (float): 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率の下限 (-)
-
-    Returns:
-        float: 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの合成変換効率 (-)
-    """
-    eta_ce_SBtoDB = \
-        f_eta_ec(x_E_in, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB, eta_ce_lim_SBtoDB)
-    return eta_ce_SBtoDB
+    return PowerConditioner.f_E_in(x_E_out, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB)
 
 
 def f_E_dash_dash_in_SBtoDB(x_E_out: float, E_dash_dash_E_in_rtd_SBtoDB: float, alpha_SBtoDB: float, beta_SBtoDB: float) -> float:
@@ -521,57 +331,7 @@ def f_E_dash_dash_in_SBtoDB(x_E_out: float, E_dash_dash_E_in_rtd_SBtoDB: float, 
     Returns:
         float: 蓄電池ユニットから分電盤へ電力を送る場合のパワーコンディショナの蓄電池ユニット側における入力電力量 (kWh/h)
     """
-    return f_E_in(x_E_out, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB)
-
-
-# 8.6.4 合成変換効率を求める関数
-
-
-def f_eta_ec(x_E_in: float, x_E_in_rtd: float, x_a: float, x_b: float, x_eta_ce_lim: float) -> float:
-    """合成変換効率を求める関数
-    
-    Args:
-        x_E_in (float): 関数の引数(入力電力量) (kWh/h)
-        x_E_in_rtd (float): 関数の引数 (定格入力電力量) (kWh/h)
-        x_a (float): 関数の引数 (パワーコンディショナの合成変換効率を求める回帰式の傾き) (-)
-        x_b (float): 関数の引数 (パワーコンディショナの合成変換効率を求める回帰式の切片) (-)
-        x_eta_ce_lim (float): 関数の引数 (合成変換効率の下限) (-)
-
-    Retusn:
-        float: 合成変換効率 (-)
-    """
-    if x_E_in <= 0:
-        return x_eta_ce_lim
-    elif x_E_in > 0:
-        return max(x_a * x_E_in_rtd / min(x_E_in, x_E_in_rtd) + x_b, x_eta_ce_lim)
-
-
-# 8.6.5 入力電力量を出力電力量から逆算する関数
-
-
-def f_E_in(x_E_out: float, x_E_in_rtd: float, x_a: float, x_b: float) -> float:
-    """入力電力量を出力電力量から逆算する関数
-
-    Args:
-        x_E_out (float): 関数の引数(出力電力量) (kWh/h)
-        x_E_in_rtd (float): 関数の引数 (定格入力電力量) (kWh/h)
-        x_a (float): 関数の引数 (パワーコンディショナの合成変換効率を求める回帰式の傾き) (-)
-        x_b (float): 関数の引数 (パワーコンディショナの合成変換効率を求める回帰式の切片) (-)
-
-    Returns:
-        float: 入力電力量 (kWh/h)
-    """
-    r_lim_rtd = 0.25
-    _E_in = min(max((-x_a * x_E_in_rtd + x_E_out) / x_b, x_E_in_rtd * r_lim_rtd), x_E_in_rtd) 
-    if _E_in / x_E_in_rtd < 0.25:
-        E_in = x_E_out / 0.96
-    else:
-        E_in = _E_in
-
-    return E_in
-
-
-# 8.7 補機の消費電力量
+    return PowerConditioner.f_E_in(x_E_out, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB)
 
 
 # 8.8 パワーコンディショナの仕様
@@ -640,9 +400,9 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
 
     # 8.8 パワーコンディショナの仕様
 
-    E_dash_dash_E_in_rtd_PVtoDB, eta_ce_lim_PVtoDB, alpha_PVtoDB, beta_PVtoDB, \
+    E_dash_dash_E_in_rtd_PVtoDB, _, alpha_PVtoDB, beta_PVtoDB, \
     E_dash_dash_E_in_rtd_PVtoSB, eta_ce_lim_PVtoSB, alpha_PVtoSB, beta_PVtoSB, \
-    E_dash_dash_E_in_rtd_SBtoDB, eta_ce_lim_SBtoDB, alpha_SBtoDB, beta_SBtoDB, _, _ = get_PCS_spec(spec)
+    E_dash_dash_E_in_rtd_SBtoDB, _, alpha_SBtoDB, beta_SBtoDB, _, _ = get_PCS_spec(spec)
 
     pc = PowerConditioner(spec=spec)
     
@@ -658,77 +418,67 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
     for n in range(8760):
         
         SC_d_t = SC_ds_ts[n]
-        E_E_dmd_excl = E_E_dmd_excl_ds_ts[n]
-        E_dash_dash_E_PV_gen = E_dash_dash_E_PV_gen_ds_ts[n]
+        E_dash_dash_E_PV_gen_d_t = E_dash_dash_E_PV_gen_ds_ts[n]
 
         # 蓄電池ユニットによる最大充放電可能電力量, kWh/h
         E_dash_dash_E_SB_max_chg_d_t, E_dash_dash_E_SB_max_dchg_d_t = bt.calc_E_dash_dash_E_SB_max_d_t(theta_ex_d_t=theta_ex_ds_ts[n], SC_d_t=SC_ds_ts[n])
 
-        # 11. 蓄電設備の作動時間数
-
         # 蓄電設備の作動時間数 式(53)
-        tau_oprt_PSS_d_t = pc.get_tau_oprt_PSS_d_t(E_dash_dash_E_PV_gen_d_t=E_dash_dash_E_PV_gen, E_E_dmd_excl_d_t=E_E_dmd_excl, E_dash_dash_E_SB_max_dchg_d_t=E_dash_dash_E_SB_max_dchg_d_t)
+        tau_oprt_PSS_d_t = pc.get_tau_oprt_PSS_d_t(E_dash_dash_E_PV_gen_d_t=E_dash_dash_E_PV_gen_d_t, E_E_dmd_excl_d_t=E_E_dmd_excl_ds_ts[n], E_dash_dash_E_SB_max_dchg_d_t=E_dash_dash_E_SB_max_dchg_d_t)
 
-        # 8.7 補機の消費電力量
-
+        # パワーコンディショナの補機の消費電力量, kWh/h
         E_E_aux_PCS_d_t = pc.get_E_E_aux_PCS_d_t(tau_oprt_PSS_d_t=tau_oprt_PSS_d_t)
 
         # 表示・計測・操作ユニット等の消費電力量 式(52)
         E_E_aux_others_d_t = pc.get_E_E_aux_others_d_t(tau_oprt_PSS_d_t=tau_oprt_PSS_d_t)
 
-        # 7. 補機の消費電力
-
         # 蓄電設備の補機の消費電力量 式(8)
-        E_E_aux_PSS = get_E_E_aux_PSS(E_E_aux_PCS_d_t, E_E_aux_others_d_t)
+        E_E_aux_PSS_d_t = pc.get_E_E_aux_PSS_d_t(E_E_aux_PCS_d_t=E_E_aux_PCS_d_t, E_E_aux_others_d_t=E_E_aux_others_d_t)
 
         # 蓄電池ユニットによる最大供給可能電力量 式(15)
-        E_dash_dash_E_SB_max_sup = get_E_dash_dash_E_SB_max_sup(E_dash_dash_E_SB_max_dchg_d_t)
+        E_dash_dash_E_SB_max_sup_d_t = pc.get_E_dash_dash_E_SB_max_sup_d_t(E_dash_dash_E_SB_max_dchg_d_t=E_dash_dash_E_SB_max_dchg_d_t)
 
         # 太陽光発電設備による最大供給可能電力量 式(14)
-        E_dash_dash_E_PV_max_sup = get_E_dash_dash_E_PV_max_sup(E_dash_dash_E_PV_gen)
+        E_dash_dash_E_PV_max_sup_d_t = pc.get_E_dash_dash_E_PV_max_sup_d_t(E_dash_dash_E_PV_gen_d_t=E_dash_dash_E_PV_gen_d_t)
 
         # 蓄電池ユニットによる最大供給可能電力量の分電盤側における換算値 式(13)
-        E_E_SB_max_sup = get_E_E_SB_max_sup(E_dash_dash_E_SB_max_sup, E_dash_dash_E_in_rtd_SBtoDB, alpha_SBtoDB, beta_SBtoDB, eta_ce_lim_SBtoDB)
+        E_E_SB_max_sup_d_t = pc.get_E_E_SB_max_sup_d_t(E_dash_dash_E_SB_max_sup_d_t=E_dash_dash_E_SB_max_sup_d_t)
 
         # 太陽光発電設備による最大供給可能電力量の分電盤側における換算値 式(12)
-
-        E_E_PV_max_sup = get_E_E_PV_max_sup(E_dash_dash_E_PV_max_sup, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB, eta_ce_lim_PVtoDB)
-
-
-        # 6. 最大供給可能電力量および余剰電力量
+        E_E_PV_max_sup_d_t = pc.get_E_E_PV_max_sup_d_t(E_dash_dash_E_PV_max_sup_d_t=E_dash_dash_E_PV_max_sup_d_t)
 
         # 蓄電設備による最大供給可能電力量の分電盤側における換算値 式(5)
-        E_E_PSS_max_sup = get_E_E_PSS_max_sup(E_E_PV_max_sup, E_E_SB_max_sup)
+        E_E_PSS_max_sup_d_t = pc.get_E_E_PSS_max_sup_d_t(E_E_PV_max_sup_d_t=E_E_PV_max_sup_d_t, E_E_SB_max_sup_d_t=E_E_SB_max_sup_d_t)
 
         # パワーコンディショナおよび蓄電設備の補機の消費電力量を含む電力需要 式(7)
-        E_E_dmd_incl = get_E_E_dmd_incl(E_E_dmd_excl, E_E_aux_PSS)
+        E_E_dmd_incl_d_t = pc.get_E_E_dmd_incl_d_t(E_E_dmd_excl_d_t=E_E_dmd_excl_ds_ts[n], E_E_aux_PSS_d_t=E_E_aux_PSS_d_t)
 
         # 余剰電力量 式(6)
-        E_E_srpl = get_E_E_srpl(E_E_PV_max_sup, E_E_dmd_incl)
+        E_E_srpl_d_t = pc.get_E_E_srpl_d_t(E_E_PV_max_sup_d_t=E_E_PV_max_sup_d_t, E_E_dmd_incl_d_t=E_E_dmd_incl_d_t)
 
         # 余剰電力量の太陽光発電設備側における換算値 式(10)
-        if E_E_srpl > 0:
-            E_dash_dash_E_srpl = get_E_dash_dash_E_srpl(E_E_srpl, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB)
+        if E_E_srpl_d_t > 0:
+            E_dash_dash_E_srpl = get_E_dash_dash_E_srpl(E_E_srpl_d_t, E_dash_dash_E_in_rtd_PVtoDB, alpha_PVtoDB, beta_PVtoDB)
         else:
             E_dash_dash_E_srpl = 0
 
         # 蓄電池ユニットによる最大充電可能電力量の分電盤側における換算値 式(16)
-        E_E_SB_max_chg = get_E_E_SB_max_chg(E_dash_dash_E_SB_max_chg_d_t, E_E_srpl, E_dash_dash_E_srpl, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
+        E_E_SB_max_chg = get_E_E_SB_max_chg(E_dash_dash_E_SB_max_chg_d_t, E_E_srpl_d_t, E_dash_dash_E_srpl, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
 
         # 太陽光発電設備による発電量のうちの自家消費分 式(1)
-        E_E_PV_h = get_E_E_PV_h(E_E_srpl, E_E_PV_max_sup, E_E_dmd_incl, SC_d_t)
+        E_E_PV_h = get_E_E_PV_h(E_E_srpl_d_t, E_E_PV_max_sup_d_t, E_E_dmd_incl_d_t, SC_d_t)
 
         # 太陽光発電設備による発電量のうちの充電分の分電盤側における換算値 式(3)
-        E_E_PV_chg = get_E_E_PV_chg(E_E_srpl, E_E_SB_max_chg, SC_d_t)
+        E_E_PV_chg = get_E_E_PV_chg(E_E_srpl_d_t, E_E_SB_max_chg, SC_d_t)
 
         # 太陽光発電設備による発電量のうちの充電分 式(9)
-        E_dash_dash_E_PV_chg = get_E_dash_dash_E_PV_chg(E_E_PV_chg, E_dash_dash_E_srpl, E_E_srpl, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
+        E_dash_dash_E_PV_chg = get_E_dash_dash_E_PV_chg(E_E_PV_chg, E_dash_dash_E_srpl, E_E_srpl_d_t, E_dash_dash_E_in_rtd_PVtoSB, alpha_PVtoSB, beta_PVtoSB, eta_ce_lim_PVtoSB)
 
         # 太陽光発電設備による発電量のうちの売電分 式(2)
-        E_E_PV_sell = get_E_E_PV_sell(E_E_srpl, E_E_PV_chg, SC_d_t)
+        E_E_PV_sell = get_E_E_PV_sell(E_E_srpl_d_t, E_E_PV_chg, SC_d_t)
 
         # 蓄電設備による放電量のうちの自家消費分 式(4)
-        E_E_PSS_h = get_E_E_PSS_h(E_E_srpl, E_E_dmd_incl, E_E_PSS_max_sup, E_E_PV_h, SC_d_t)
+        E_E_PSS_h = get_E_E_PSS_h(E_E_srpl_d_t, E_E_dmd_incl_d_t, E_E_PSS_max_sup_d_t, E_E_PV_h, SC_d_t)
 
         # 蓄電池ユニットによる放電量のうちの供給分の分電盤側における換算値 式(11b)
         E_E_SB_sup = get_E_E_SB_sup(E_E_PSS_h)
@@ -752,13 +502,13 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         # (4)
         bl.E_E_PSS_h_d_t[n] = E_E_PSS_h
         # (5)
-        bl.E_E_PSS_max_sup_d_t[n] = E_E_PSS_max_sup
+        bl.E_E_PSS_max_sup_d_t[n] = E_E_PSS_max_sup_d_t
         # (6)
-        bl.E_E_srpl_d_t[n] = E_E_srpl
+        bl.E_E_srpl_d_t[n] = E_E_srpl_d_t
         # (7)
-        bl.E_E_dmd_incl_d_t[n] = E_E_dmd_incl
+        bl.E_E_dmd_incl_d_t[n] = E_E_dmd_incl_d_t
         # (8)
-        bl.E_E_aux_PSS_d_t[n] = E_E_aux_PSS
+        bl.E_E_aux_PSS_d_t[n] = E_E_aux_PSS_d_t
         # (9a)
         bl.E_dash_dash_E_PV_chg_d_t[n] = E_dash_dash_E_PV_chg
         # (10)
@@ -766,13 +516,13 @@ def calculate(spec: dict, SC_ds_ts: np.ndarray, E_E_dmd_excl_ds_ts: np.ndarray, 
         # (11)
         bl.E_dash_dash_E_SB_sup_d_t[n] = E_dash_dash_E_SB_sup
         # (12)
-        bl.E_E_PV_max_sup_d_t[n] = E_E_PV_max_sup
+        bl.E_E_PV_max_sup_d_t[n] = E_E_PV_max_sup_d_t
         # (13)
-        bl.E_E_SB_max_sup_d_t[n] = E_E_SB_max_sup
+        bl.E_E_SB_max_sup_d_t[n] = E_E_SB_max_sup_d_t
         # (14)
-        bl.E_dash_dash_E_PV_max_sup_d_t[n] = E_dash_dash_E_PV_max_sup
+        bl.E_dash_dash_E_PV_max_sup_d_t[n] = E_dash_dash_E_PV_max_sup_d_t
         # (15)
-        bl.E_dash_dash_E_SB_max_sup_d_t[n] = E_dash_dash_E_SB_max_sup
+        bl.E_dash_dash_E_SB_max_sup_d_t[n] = E_dash_dash_E_SB_max_sup_d_t
         # (16)
         bl.E_E_SB_max_chg_d_t[n] = E_E_SB_max_chg
         # (25)
